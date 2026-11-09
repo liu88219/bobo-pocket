@@ -89,7 +89,7 @@ export const CategoryManager: React.FC<{
           <button
             type="button"
             onClick={() => {
-              if (window.confirm('恢復成預設 14 個分類？（妳自訂的分類會被移除，店卡不會刪除）')) onChange(DEFAULT_CATEGORIES);
+              if (window.confirm('恢復成預設 16 個分類？（妳自訂的分類會被移除，店卡不會刪除）')) onChange(DEFAULT_CATEGORIES);
             }}
             className="text-[11.5px] font-bold text-[#8A7E70] underline underline-offset-2"
           >

@@ -125,6 +125,8 @@ export interface VaultState {
   /** 使用者自訂的分類清單（undefined = 使用預設） */
   categories?: CategoryDef[];
   categoriesUpdatedAt?: number;
+  /** 使用者儲存分類當下已知的預設 id（之後新增的預設分類會自動補進清單） */
+  categoriesKnownDefaults?: string[];
   deletedIds: Record<string, number>;
 }
 

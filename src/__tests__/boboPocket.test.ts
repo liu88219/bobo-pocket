@@ -306,14 +306,32 @@ describe('spotResolver', () => {
 });
 
 describe('分類系統', () => {
-  it('預設 14 分類、id 不重複，categoryMeta 有保底', () => {
-    expect(DEFAULT_CATEGORIES.length).toBe(14);
+  it('預設 16 分類、id 不重複，categoryMeta 有保底', () => {
+    expect(DEFAULT_CATEGORIES.length).toBe(16);
+    expect(DEFAULT_CATEGORIES.map((c) => c.id)).toEqual(expect.arrayContaining(['izakaya', 'bistro']));
     expect(new Set(DEFAULT_CATEGORIES.map((c) => c.id)).size).toBe(DEFAULT_CATEGORIES.length);
     expect(categoryMeta(DEFAULT_CATEGORIES, 'hotpot').label).toBe('火鍋');
     expect(categoryMeta([], 'cafe').label).toBe('咖啡廳');
     expect(categoryMeta(DEFAULT_CATEGORIES, 'nope').emoji).toBe('📍');
     expect(makeCategoryId('手搖飲', DEFAULT_CATEGORIES)).toBe('cat-手搖飲');
     expect(resolveCategories({ categories: undefined })).toBe(DEFAULT_CATEGORIES);
+  });
+
+  it('舊版自訂清單會自動補上之後新增的預設分類（居酒屋／餐酒館），且不會復活使用者刪掉的分類', () => {
+    const legacy = DEFAULT_CATEGORIES.filter((c) => !['izakaya', 'bistro', 'burger'].includes(c.id));
+    const resolved = resolveCategories({ categories: legacy, categoriesKnownDefaults: undefined });
+    const ids = resolved.map((c) => c.id);
+    expect(ids).toContain('izakaya');
+    expect(ids).toContain('bistro');
+    expect(ids).not.toContain('burger');
+    expect(ids.indexOf('izakaya')).toBeGreaterThan(ids.indexOf('bbq'));
+    const current = resolveCategories({ categories: legacy, categoriesKnownDefaults: DEFAULT_CATEGORIES.map((c) => c.id) });
+    expect(current.map((c) => c.id)).not.toContain('izakaya');
+  });
+
+  it('居酒屋／餐酒館分類推斷', () => {
+    expect(parseSpotDraft({ text: '中山站巷弄居酒屋 串燒燒鳥配清酒' }).category).toBe('izakaya');
+    expect(parseSpotDraft({ text: '永康街質感餐酒館 自然酒配 tapas' }).category).toBe('bistro');
   });
 
   it('自訂分類採最後寫入優先同步', () => {

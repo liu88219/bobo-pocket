@@ -222,6 +222,7 @@ export function parseVaultJson(raw: string | null | undefined): VaultState | nul
       customTags: Array.isArray(parsed.customTags) ? parsed.customTags : [],
       categories: Array.isArray(parsed.categories) && parsed.categories.length > 0 ? parsed.categories : undefined,
       categoriesUpdatedAt: typeof parsed.categoriesUpdatedAt === 'number' ? parsed.categoriesUpdatedAt : 0,
+      categoriesKnownDefaults: Array.isArray(parsed.categoriesKnownDefaults) ? parsed.categoriesKnownDefaults : undefined,
       deletedIds: parsed.deletedIds || {},
     };
   } catch {
@@ -528,6 +529,9 @@ export function mergeVaultStates(local: VaultState, remote: VaultState): VaultSt
 
   const localCatsNewer = (local.categoriesUpdatedAt || 0) >= (remote.categoriesUpdatedAt || 0);
   const categories = localCatsNewer ? local.categories || remote.categories : remote.categories || local.categories;
+  const categoriesKnownDefaults = localCatsNewer
+    ? local.categoriesKnownDefaults || remote.categoriesKnownDefaults
+    : remote.categoriesKnownDefaults || local.categoriesKnownDefaults;
   const categoriesUpdatedAt = Math.max(local.categoriesUpdatedAt || 0, remote.categoriesUpdatedAt || 0);
 
   const localSettingsNewer = (local.settingsUpdatedAt || 0) >= (remote.settingsUpdatedAt || 0);
@@ -559,6 +563,7 @@ export function mergeVaultStates(local: VaultState, remote: VaultState): VaultSt
     customTags,
     categories,
     categoriesUpdatedAt,
+    categoriesKnownDefaults,
     deletedIds,
   };
 }

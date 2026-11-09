@@ -121,7 +121,9 @@ const CATEGORY_RULES: Record<string, KeywordRule[]> = {
   burger: [{ re: /漢堡|burger|美式餐廳|薯條/i, weight: 4 }],
   birthday: [{ re: /慶生|生日餐廳|過生日|生日聚餐|紀念日餐廳|求婚|包廂|壽星|慶祝/i, weight: 4 }],
   cake: [{ re: /生日蛋糕|客製蛋糕|蛋糕店|造型蛋糕|cake|戚風|千層蛋糕|蛋糕預訂/i, weight: 4 }],
-  western: [{ re: /西餐|牛排|steak|排餐|法式|法餐|bistro|餐酒館|fine dining|歐式|地中海|brasserie|鐵板燒/i, weight: 3 }],
+  izakaya: [{ re: /居酒屋|izakaya|串燒|燒鳥|yakitori|日式酒場|酒場|大眾酒場|立吞|關東煮|清酒吧/i, weight: 4 }],
+  bistro: [{ re: /餐酒館|bistro|bistrot|wine bar|小酒館|brasserie|餐酒|tapas|natural wine|自然酒/i, weight: 4 }],
+  western: [{ re: /西餐|牛排|steak|排餐|法式|法餐|fine dining|歐式|地中海|鐵板燒/i, weight: 3 }],
   cafe: [
     { re: /咖啡廳|咖啡店|咖啡館|cafe|café|coffee|手沖|拿鐵|latte|美式|dirty|燕麥奶|咖啡/i, weight: 3 },
     { re: /跑咖|讀書|辦公|不限時|插座|wifi/i, weight: 1 },
@@ -131,7 +133,7 @@ const CATEGORY_RULES: Record<string, KeywordRule[]> = {
     { re: /下午茶|茶點/i, weight: 2 },
   ],
   bar: [
-    { re: /酒吧|bar\b|調酒|cocktail|居酒屋|精釀|啤酒|清酒|威士忌|speakeasy|wine bar|小酒館/i, weight: 3 },
+    { re: /酒吧|bar\b|調酒|cocktail|精釀|啤酒|威士忌|speakeasy|lounge/i, weight: 3 },
     { re: /微醺|小酌|喝一杯/i, weight: 2 },
   ],
   'late-night': [{ re: /宵夜|消夜|深夜食堂|凌晨|熱炒|滷味|鹹酥雞|鹽酥雞|深夜|24小時|24h|半夜/i, weight: 3 }],

@@ -1,7 +1,7 @@
 import { CategoryDef, RevisitLevel, VaultState } from '../types/pocket';
 
 /**
- * 分類系統：預設 14 個主分類（Mona 指定），可在設定頁新增／改名／換 emoji／換色／排序。
+ * 分類系統：預設 16 個主分類（Mona 指定），可在設定頁新增／改名／換 emoji／換色／排序。
  */
 
 export const CATEGORY_PALETTE: Array<{ bg: string; fg: string; name: string }> = [
@@ -30,6 +30,8 @@ export const DEFAULT_CATEGORIES: CategoryDef[] = [
   { id: 'hotpot', label: '火鍋', emoji: '🍲', ...P(9) },
   { id: 'bbq', label: '燒肉', emoji: '🍖', ...P(0) },
   { id: 'burger', label: '漢堡', emoji: '🍔', ...P(5) },
+  { id: 'izakaya', label: '居酒屋', emoji: '🏮', ...P(9) },
+  { id: 'bistro', label: '餐酒館', emoji: '🍷', ...P(6) },
   { id: 'bar', label: '酒吧', emoji: '🍸', ...P(4) },
   { id: 'late-night', label: '宵夜', emoji: '🍢', ...P(7) },
   { id: 'spot', label: '景點', emoji: '🌿', ...P(3) },
@@ -43,17 +45,32 @@ export const EMOJI_CHOICES: string[] = [
   '🧇', '🥐', '🥖', '🥯', '🍞', '🧀', '🥗', '🥬', '🥑', '🍅', '🌽', '🍠', '🍄', '🫘', '🍆', '🥦',
   '🍰', '🎂', '🧁', '🍮', '🍩', '🍪', '🍫', '🍬', '🍭', '🍦', '🍨', '🍧', '🍯', '🥧', '🍓', '🍑',
   '🍊', '🍋', '🍇', '🍉', '🍌', '🥭', '🍍', '🥝', '🍒', '🫐', '☕', '🧋', '🍵', '🥤', '🧃', '🥛',
-  '🍺', '🍻', '🍷', '🍸', '🍹', '🍶', '🥂', '🍾', '🥃', '🧉', '🧊', '🌙', '⭐', '✨', '🎉', '🎈',
+  '🍺', '🍻', '🍷', '🍸', '🍹', '🍶', '🥂', '🍾', '🥃', '🧉', '🧊', '🏮', '🌙', '⭐', '✨', '🎉', '🎈',
   '🎁', '💐', '🌸', '🌼', '🌻', '🌹', '🌿', '🍀', '🌳', '🌲', '🏞️', '🏔️', '⛰️', '🌋', '🏖️', '🌊',
   '🌅', '🌇', '🌃', '🎡', '🎢', '🎠', '🎪', '🏛️', '⛩️', '🏯', '🏰', '🗼', '🏙️', '🚉', '🚇', '🚲',
   '🛶', '⛺', '🏕️', '🎨', '🖼️', '🎭', '🎬', '🎤', '🎧', '📚', '📖', '🧸', '🐶', '🐱', '🐾', '🧺',
   '🛍️', '💅', '🧖', '♨️', '🛁', '💛', '🤎', '💜', '📍', '🗺️', '🧭', '🔖', '🏷️', '💰', '🎯', '🍽️',
 ];
 
-export function resolveCategories(vault: Pick<VaultState, 'categories'> | null | undefined): CategoryDef[] {
+/** 第一版（2025-11-09 上午）就存在的預設 id：舊版自訂清單若缺少「之後才新增」的預設分類，會自動補上 */
+export const LEGACY_KNOWN_DEFAULT_IDS = ['food', 'pasta', 'cafe', 'birthday', 'cake', 'western', 'dessert', 'hotpot', 'bbq', 'burger', 'bar', 'late-night', 'spot', 'special-spot'];
+
+export function resolveCategories(vault: Pick<VaultState, 'categories' | 'categoriesKnownDefaults'> | null | undefined): CategoryDef[] {
   const list = vault?.categories;
-  if (Array.isArray(list) && list.length > 0) return list;
-  return DEFAULT_CATEGORIES;
+  if (!Array.isArray(list) || list.length === 0) return DEFAULT_CATEGORIES;
+  const known = new Set(vault?.categoriesKnownDefaults && vault.categoriesKnownDefaults.length > 0 ? vault.categoriesKnownDefaults : LEGACY_KNOWN_DEFAULT_IDS);
+  const have = new Set(list.map((c) => c.id));
+  const missingNewDefaults = DEFAULT_CATEGORIES.filter((c) => !have.has(c.id) && !known.has(c.id));
+  if (missingNewDefaults.length === 0) return list;
+  // 依預設順序插入（放在前一個預設分類之後）
+  const merged = [...list];
+  for (const def of missingNewDefaults) {
+    const defIdx = DEFAULT_CATEGORIES.findIndex((c) => c.id === def.id);
+    const prevDefault = DEFAULT_CATEGORIES.slice(0, defIdx).reverse().find((c) => merged.some((m) => m.id === c.id));
+    const insertAt = prevDefault ? merged.findIndex((m) => m.id === prevDefault.id) + 1 : merged.length;
+    merged.splice(insertAt, 0, def);
+  }
+  return merged;
 }
 
 const FALLBACK_META: CategoryDef = { id: 'unknown', label: '未分類', emoji: '📍', bg: '#E8DED0', fg: '#5C5044' };

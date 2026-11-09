@@ -32,7 +32,7 @@ import { resolveAllSpots, applyFilters, sortSpots, SpotFilters, DEFAULT_FILTERS 
 import { distanceKm, formatDistance, getCurrentPosition } from './services/mapLinks';
 import { geocodeSpotSmart } from './services/geocode';
 import { ImportedPlace, importedPlaceToSpot, normalizePlaceKey } from './services/importers';
-import { resolveCategories, categoryMeta } from './data/categories';
+import { resolveCategories, categoryMeta, DEFAULT_CATEGORIES } from './data/categories';
 import { CategoryProvider } from './components/CategoryContext';
 import { ExploreView } from './components/ExploreView';
 import { DiscoverResult, DiscoverArea, discoverResultToSpot } from './services/discover';
@@ -597,7 +597,7 @@ export const App: React.FC = () => {
   const handleChangeCategories = useCallback(
     (next: CategoryDef[]) => {
       const cleaned = next.map((c) => ({ ...c, label: c.label.trim() || c.id, emoji: c.emoji || '🍽️' }));
-      commitVaultUpdate((prev) => ({ ...prev, categories: cleaned, categoriesUpdatedAt: Date.now() }));
+      commitVaultUpdate((prev) => ({ ...prev, categories: cleaned, categoriesUpdatedAt: Date.now(), categoriesKnownDefaults: DEFAULT_CATEGORIES.map((c) => c.id) }));
     },
     [commitVaultUpdate]
   );
@@ -618,6 +618,7 @@ export const App: React.FC = () => {
           ...prev,
           categories: remaining,
           categoriesUpdatedAt: now,
+          categoriesKnownDefaults: DEFAULT_CATEGORIES.map((c) => c.id),
           personalSpots: prev.personalSpots.map((sp) => (sp.category === id ? { ...sp, category: fallback, updatedAt: now } : sp)),
           overrides,
         };
