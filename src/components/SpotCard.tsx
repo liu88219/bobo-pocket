@@ -41,7 +41,8 @@ export const SpotCard: React.FC<{
   onOpen: (spot: ResolvedSpot) => void;
   onToggleWant: (spot: ResolvedSpot) => void;
   onToggleVisited: (spot: ResolvedSpot) => void;
-}> = ({ spot, onOpen, onToggleWant, onToggleVisited }) => {
+  distanceLabel?: string;
+}> = ({ spot, onOpen, onToggleWant, onToggleVisited, distanceLabel }) => {
   const status = spot.mark?.status || 'none';
   const revisit = spot.mark?.revisit;
   const platform = spot.source?.platform;
@@ -59,6 +60,9 @@ export const SpotCard: React.FC<{
           <span className="absolute top-2 right-2 rounded-full bg-[#FAF8F3]/90 text-[11px] font-bold px-2 py-0.5 border border-[#DDD7C9]">
             {PLATFORM_LABEL[platform].emoji}
           </span>
+        )}
+        {distanceLabel && (
+          <span className="absolute bottom-2 right-2 rounded-full bg-[#DCE5D2]/95 text-[#3F5A3A] text-[11px] font-black px-2 py-0.5 border border-[#C9D6BE]">📍 {distanceLabel}</span>
         )}
         {status !== 'none' && (
           <span

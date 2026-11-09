@@ -27,11 +27,13 @@ export const MapView: React.FC<{
   className?: string;
   focus?: { lat: number; lng: number; zoom?: number } | null;
   draggablePin?: { lat: number; lng: number; onMove: (lat: number, lng: number) => void } | null;
-}> = ({ spots, onSelect, className = 'h-[60vh]', focus = null, draggablePin = null }) => {
+  myLocation?: { lat: number; lng: number } | null;
+}> = ({ spots, onSelect, className = 'h-[60vh]', focus = null, draggablePin = null, myLocation = null }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   const pinRef = useRef<L.Marker | null>(null);
+  const meRef = useRef<L.Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
@@ -56,6 +58,7 @@ export const MapView: React.FC<{
       mapRef.current = null;
       layerRef.current = null;
       pinRef.current = null;
+      meRef.current = null;
     };
   }, []);
 
@@ -86,6 +89,21 @@ export const MapView: React.FC<{
       m.addTo(layer);
       bounds.push([s.lat, s.lng]);
     }
+    if (myLocation) {
+      if (!meRef.current) {
+        meRef.current = L.marker([myLocation.lat, myLocation.lng], {
+          icon: L.divIcon({ className: 'bp-marker-wrap', html: '<div class="bp-me-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
+          interactive: false,
+          zIndexOffset: 500,
+        }).addTo(map);
+      } else {
+        meRef.current.setLatLng([myLocation.lat, myLocation.lng]);
+      }
+      bounds.push([myLocation.lat, myLocation.lng]);
+    } else if (meRef.current) {
+      meRef.current.remove();
+      meRef.current = null;
+    }
     if (focus) {
       map.setView([focus.lat, focus.lng], focus.zoom || 15);
     } else if (bounds.length > 1) {
@@ -94,7 +112,7 @@ export const MapView: React.FC<{
       map.setView(bounds[0], 15);
     }
     setTimeout(() => map.invalidateSize(), 80);
-  }, [spots, focus]);
+  }, [spots, focus, myLocation]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -1,4 +1,5 @@
 import { SpotCategory, SourcePlatform } from '../types/pocket';
+import { parseMapShareUrl } from './mapLinks';
 import {
   METRO_STATIONS,
   ZONES,
@@ -21,6 +22,11 @@ export interface ParseInput {
   previewTitle?: string;
   previewDescription?: string;
   previewAuthor?: string;
+  /** 由 Google Maps／Apple 地圖連結或地點頁解析出的欄位（優先度高） */
+  previewName?: string;
+  previewAddress?: string;
+  previewLat?: number;
+  previewLng?: number;
 }
 
 export interface ParsedDraft {
@@ -31,6 +37,8 @@ export interface ParsedDraft {
   mrt?: string;
   zone?: string;
   address?: string;
+  lat?: number;
+  lng?: number;
   hours?: string;
   priceHint?: string;
   tags: string[];
@@ -53,6 +61,7 @@ export function detectPlatform(url?: string): SourcePlatform {
   if (/youtube\.com|youtu\.be/.test(u)) return 'youtube';
   if (/facebook\.com|fb\.com|fb\.watch/.test(u)) return 'facebook';
   if (/google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google/.test(u)) return 'googlemaps';
+  if (/maps\.apple\.com|^maps:\/\//.test(u)) return 'applemaps';
   return 'web';
 }
 
@@ -318,11 +327,21 @@ export function parseSpotDraft(input: ParseInput): ParsedDraft {
     .map((l) => l.trim())
     .filter((l) => l.length > 0 && !/^https?:/i.test(l) && !/^#/.test(l));
 
+  // --- 地圖分享連結（Google Maps／Apple 地圖）可直接讀到的店名、地址、座標 ---
+  const mapInfo = input.url ? parseMapShareUrl(input.url) : null;
+  const mapName = input.previewName || mapInfo?.name;
+  const mapAddress = input.previewAddress || mapInfo?.address;
+  const mapLat = typeof input.previewLat === 'number' ? input.previewLat : mapInfo?.lat;
+  const mapLng = typeof input.previewLng === 'number' ? input.previewLng : mapInfo?.lng;
+
   // --- 地址 ---
   let address: string | undefined;
-  const addrMatch = ADDRESS_RE.exec(corpus);
+  const addrMatch = ADDRESS_RE.exec(`${mapAddress || ''}\n${corpus}`);
   if (addrMatch) {
     address = addrMatch[1].replace(/\s+/g, '');
+    detected.push(`地址 ${address}`);
+  } else if (mapAddress) {
+    address = mapAddress.trim();
     detected.push(`地址 ${address}`);
   }
 
@@ -333,7 +352,7 @@ export function parseSpotDraft(input: ParseInput): ParsedDraft {
 
   const districtMatches = Array.from(corpus.matchAll(DISTRICT_RE)).map((m) => m[1]);
   if (address) {
-    const dm = /([\u4e00-\u9fa5]{1,3}區)/.exec(address);
+    const dm = new RegExp(`(${ALL_DISTRICTS.join('|')})`).exec(address);
     if (dm && districtToCity(dm[1])) {
       district = dm[1];
       city = districtToCity(dm[1]) || '';
@@ -423,8 +442,17 @@ export function parseSpotDraft(input: ParseInput): ParsedDraft {
   if (cat.score > 0) detected.push(`分類：${cat.category}`);
 
   // --- 名稱 ---
-  const nameHit = pickName(lines, corpus, input.previewTitle, platform);
+  let nameHit = pickName(lines, corpus, input.previewTitle, platform);
+  if (mapName && (nameHit.confidence < 0.9 || !nameHit.name)) {
+    nameHit = { name: cleanName(mapName), confidence: 0.88 };
+  }
   if (nameHit.name) detected.push(`店名「${nameHit.name}」`);
+  const lat = typeof mapLat === 'number' && Number.isFinite(mapLat) ? mapLat : undefined;
+  const lng = typeof mapLng === 'number' && Number.isFinite(mapLng) ? mapLng : undefined;
+  if (lat !== undefined && lng !== undefined) {
+    locationConfidence = Math.max(locationConfidence, 0.9);
+    detected.push('座標');
+  }
 
   // --- 其他欄位 ---
   const hours = inferHours(corpus);
@@ -444,6 +472,8 @@ export function parseSpotDraft(input: ParseInput): ParsedDraft {
     mrt,
     zone,
     address,
+    lat,
+    lng,
     hours,
     priceHint,
     tags,
@@ -459,11 +489,4 @@ export function parseSpotDraft(input: ParseInput): ParsedDraft {
     },
     detected,
   };
-}
-
-export function buildGoogleMapsUrl(name: string, address?: string, lat?: number, lng?: number): string {
-  if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${address || ''}`.trim())}&center=${lat},${lng}`;
-  }
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${address || ''}`.trim())}`;
 }

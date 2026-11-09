@@ -16,6 +16,7 @@ export type SourcePlatform =
   | 'youtube'
   | 'facebook'
   | 'googlemaps'
+  | 'applemaps'
   | 'web'
   | 'manual';
 

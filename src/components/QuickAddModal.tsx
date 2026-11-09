@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles, Inbox, Link2, ImagePlus, ScanText, Loader2, Film } from 'lucide-react';
+import { Sparkles, Inbox, Link2, ImagePlus, ScanText, Loader2, Film, ClipboardPaste } from 'lucide-react';
 import { InboxItem } from '../types/pocket';
 import { fetchLinkPreview, LinkPreview } from '../services/linkPreview';
 import { parseSpotDraft, extractFirstUrl, ParsedDraft } from '../services/spotParser';
@@ -120,6 +120,23 @@ export const QuickAddModal: React.FC<{
     }
   };
 
+  const pasteFromClipboard = async () => {
+    try {
+      const clip = (await navigator.clipboard.readText()).trim();
+      if (!clip) {
+        onToast('剪貼簿是空的');
+        return;
+      }
+      const found = extractFirstUrl(clip);
+      if (found && !url) setUrl(found);
+      const remaining = found ? clip.replace(found, '').trim() : clip;
+      if (remaining) setText((prev) => (prev ? `${prev}\n${remaining}` : remaining));
+      onToast('📋 已貼上剪貼簿內容');
+    } catch {
+      onToast('無法讀取剪貼簿，請長按輸入框手動貼上');
+    }
+  };
+
   const runParse = () => {
     const parsed = parseSpotDraft({
       url: url.trim() || undefined,
@@ -128,6 +145,10 @@ export const QuickAddModal: React.FC<{
       previewTitle: preview?.title,
       previewDescription: preview?.description,
       previewAuthor: preview?.author,
+      previewName: preview?.placeName,
+      previewAddress: preview?.address,
+      previewLat: preview?.lat,
+      previewLng: preview?.lng,
     });
     const draft: SpotFormDraft = {
       ...emptyDraft(),
@@ -138,6 +159,8 @@ export const QuickAddModal: React.FC<{
       mrt: parsed.mrt || '',
       zone: parsed.zone || '',
       address: parsed.address || '',
+      lat: parsed.lat,
+      lng: parsed.lng,
       hours: parsed.hours || '',
       priceHint: parsed.priceHint || '',
       tags: parsed.tags,
@@ -195,12 +218,17 @@ export const QuickAddModal: React.FC<{
         <div className="flex items-center gap-3 doodle-card-soft p-3">
           <QuokkaMapBadge className="w-14 h-14 shrink-0" />
           <p className="text-[12.5px] text-[#5C5044] leading-snug">
-            IG 常擋登入牆抓不到文案，<b>順手「複製貼文文字」或截一張有店名的畫面</b>貼進來，準確率最高！Threads 連結通常可直接抓到。
+            IG 常擋登入牆，<b>順手「複製貼文文字」或截一張有店名的畫面</b>貼進來最準；Threads 多半可直接抓到。<b>Google Maps／Apple 地圖「分享」</b>的連結＋文字也可以直接貼！
           </p>
         </div>
 
         <div>
-          <label className="label-cream">連結（IG Reels／Threads／YouTube／Google Maps）</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="label-cream !mb-0">連結（IG／Threads／Google Maps／Apple 地圖）</label>
+            <button type="button" onClick={() => void pasteFromClipboard()} className="pill pill-butter !py-1">
+              <ClipboardPaste size={13} /> 貼上剪貼簿
+            </button>
+          </div>
           <div className="relative">
             <Link2 size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A79C8E]" />
             <input
@@ -227,8 +255,15 @@ export const QuickAddModal: React.FC<{
               </div>
             </div>
           )}
+          {preview && (preview.platform === 'googlemaps' || preview.platform === 'applemaps') && typeof preview.lat === 'number' && (
+            <p className="text-[11.5px] text-[#3F5A3A] font-bold mt-1.5">📍 已從地圖連結取得座標 {preview.lat.toFixed(4)}, {preview.lng?.toFixed(4)}</p>
+          )}
           {!previewBusy && preview && !preview.title && !preview.description && url && (
-            <p className="text-[11.5px] text-[#8A7E70] mt-1.5">抓不到公開預覽（可能被登入牆擋住）— 貼文案或上傳截圖一樣能解析 👇</p>
+            <p className="text-[11.5px] text-[#8A7E70] mt-1.5">
+              {preview.platform === 'googlemaps'
+                ? '短網址抓不到座標也沒關係：Google Maps 分享文字裡的店名＋地址會自動解析，再按「定位」即可'
+                : '抓不到公開預覽（可能被登入牆擋住）— 貼文案或上傳截圖一樣能解析 👇'}
+            </p>
           )}
         </div>
 

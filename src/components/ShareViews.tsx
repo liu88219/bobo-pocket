@@ -3,7 +3,7 @@ import { Share2, Copy, Loader2, Navigation, ExternalLink } from 'lucide-react';
 import { ResolvedSpot, Spot } from '../types/pocket';
 import { CATEGORY_MAP, tagLabel } from '../data/categories';
 import { buildSharePayload, publishShare, buildShareUrl, fetchShare, SharePayload } from '../services/shareService';
-import { buildGoogleMapsUrl } from '../services/spotParser';
+import { googleMapsViewUrl } from '../services/mapLinks';
 import { Modal, copyToClipboard, Chip } from './ui';
 import { MapView } from './MapView';
 import { HeroBanner } from './QuokkaBoboArt';
@@ -189,7 +189,7 @@ export const ShareView: React.FC<{ code: string; onOpenApp: () => void }> = ({ c
                       </div>
                     )}
                     <div className="flex gap-2 pt-1">
-                      <a href={buildGoogleMapsUrl(s.name, s.address, s.lat, s.lng)} target="_blank" rel="noreferrer" className="doodle-btn flex-1 bg-[#1E3158] text-white font-black py-2.5 text-[13px] inline-flex items-center justify-center gap-1">
+                      <a href={googleMapsViewUrl(s.name, s.address, s.lat, s.lng)} target="_blank" rel="noreferrer" className="doodle-btn flex-1 bg-[#1E3158] text-white font-black py-2.5 text-[13px] inline-flex items-center justify-center gap-1">
                         <Navigation size={14} /> Google Maps
                       </a>
                       {s.source?.url && (

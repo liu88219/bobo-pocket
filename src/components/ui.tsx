@@ -98,6 +98,7 @@ export const PLATFORM_LABEL: Record<SourcePlatform, { label: string; emoji: stri
   youtube: { label: 'YouTube', emoji: '▶️' },
   facebook: { label: 'Facebook', emoji: '📘' },
   googlemaps: { label: 'Google Maps', emoji: '🗺️' },
+  applemaps: { label: 'Apple 地圖', emoji: '🍎' },
   web: { label: '網頁', emoji: '🔗' },
   manual: { label: '手動建立', emoji: '✍️' },
 };

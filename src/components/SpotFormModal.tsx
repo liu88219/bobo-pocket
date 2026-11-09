@@ -197,7 +197,7 @@ export const SpotFormModal: React.FC<{
       open={open}
       onClose={onCancel}
       title={title}
-      subtitle={d.origin === 'curated' ? '這是精選範例卡，妳的修改只會存在自己的保險箱' : '存檔後會自動同步到雙雲端保險箱'}
+      subtitle={d.origin === 'curated' ? '這是管家維護的精選卡，妳的修改只會存在自己的保險箱' : '存檔後會自動同步到雙雲端保險箱'}
       footer={
         <div className="flex gap-2">
           <button type="button" onClick={onCancel} className="doodle-btn flex-1 bg-[#EFECE4] text-[#5C5044] font-black py-3">

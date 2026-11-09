@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Eye, EyeOff, RefreshCw, Download, Upload, LifeBuoy, Smartphone, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, RefreshCw, Download, Upload, LifeBuoy, Smartphone, Loader2, MapPinned, LocateFixed } from 'lucide-react';
 import { VaultState } from '../types/pocket';
 import { CURATED_SPOTS } from '../data/curatedSpots';
 import { listLocalHistorySnapshots, LocalHistorySnapshot, exportBackupJson, parseVaultJson } from '../services/cloudSync';
+import { parseTakeoutFile, ImportedPlace } from '../services/importers';
 import { Modal, SectionTitle, formatDateTime, copyToClipboard } from './ui';
 import { MarshBadge } from './QuokkaBoboArt';
 
@@ -22,13 +23,19 @@ export const SettingsModal: React.FC<{
   onUnhideCurated: (id: string) => void;
   onSetNickname: (name: string) => void;
   onToast: (msg: string) => void;
-}> = ({ open, onClose, vault, passcode, fingerprintBadge, syncBusy, hasUnsynced, onBindPasscode, onUnbind, onSyncNow, onRestoreSnapshot, onImportBackup, onUnhideCurated, onSetNickname, onToast }) => {
+  onImportPlaces: (places: ImportedPlace[]) => { added: number; skipped: number };
+  unlocatedCount: number;
+  onBatchGeocode: (onProgress: (done: number, total: number) => void) => Promise<{ located: number; failed: number }>;
+}> = ({ open, onClose, vault, passcode, fingerprintBadge, syncBusy, hasUnsynced, onBindPasscode, onUnbind, onSyncNow, onRestoreSnapshot, onImportBackup, onUnhideCurated, onSetNickname, onToast, onImportPlaces, unlocatedCount, onBatchGeocode }) => {
   const [passInput, setPassInput] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [binding, setBinding] = useState(false);
   const [bindMsg, setBindMsg] = useState('');
   const [snaps, setSnaps] = useState<LocalHistorySnapshot[]>([]);
   const [nick, setNick] = useState(vault.profile.nickname || '');
+  const [importMsg, setImportMsg] = useState('');
+  const [geoProgress, setGeoProgress] = useState('');
+  const [geoBusy, setGeoBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -47,6 +54,36 @@ export const SettingsModal: React.FC<{
     setBindMsg(res.msg);
     setBinding(false);
     if (res.ok) setPassInput('');
+  };
+
+  const importTakeout = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    let all: ImportedPlace[] = [];
+    for (const f of Array.from(files)) {
+      try {
+        const txt = await f.text();
+        all = all.concat(parseTakeoutFile(txt, f.name));
+      } catch {
+        // skip unreadable file
+      }
+    }
+    if (all.length === 0) {
+      setImportMsg('沒有讀到地點：請選 Takeout 的 Saved Places.json 或清單 .csv');
+      return;
+    }
+    const res = onImportPlaces(all);
+    setImportMsg(`✅ 匯入 ${res.added} 筆（略過重複 ${res.skipped} 筆）。沒有座標的店卡可用下方「一鍵定位」補齊。`);
+  };
+
+  const runBatchGeocode = async () => {
+    setGeoBusy(true);
+    setGeoProgress('開始定位…');
+    try {
+      const res = await onBatchGeocode((done, total) => setGeoProgress(`定位中 ${done}/${total}（每筆約 1 秒）`));
+      setGeoProgress(`完成：成功 ${res.located} 筆，找不到 ${res.failed} 筆（可打開店卡手動在地圖點選）`);
+    } finally {
+      setGeoBusy(false);
+    }
   };
 
   const importFile = async (file: File | null) => {
@@ -127,7 +164,7 @@ export const SettingsModal: React.FC<{
         </section>
 
         <section className="doodle-card p-4 flex flex-col gap-3">
-          <SectionTitle>📲 iPhone 捷徑：IG／Threads 分享 → 一鍵收錄</SectionTitle>
+          <SectionTitle>📲 iPhone 捷徑：IG／Threads／Google Maps 分享 → 一鍵收錄</SectionTitle>
           <ol className="text-[13px] text-[#2D251E] leading-relaxed list-decimal pl-5 flex flex-col gap-1">
             <li>打開「捷徑」App → 新增捷徑 → 右上角 ⓘ 勾選「顯示於分享工作表」，接受類型選「URL」與「文字」。</li>
             <li>加入動作「取得輸入內容的 URL」。</li>
@@ -138,10 +175,35 @@ export const SettingsModal: React.FC<{
               （把 [URL] 與 [已提供的輸入] 換成對應的變數）
             </li>
             <li>之後在 IG／Threads 按「分享 → 捷徑名稱」就會直接打開快速收錄並預填 ✨</li>
+            <li>
+              <b>Google Maps／Apple 地圖</b>的地點頁也能「分享 → 同一個捷徑」：分享文字裡的店名＋地址會自動解析，座標也會一起帶入（Apple 地圖）或按一下「定位」補齊。
+            </li>
           </ol>
           <button type="button" onClick={async () => onToast((await copyToClipboard(`${appUrl}?add=`)) ? '已複製 App 網址前綴' : appUrl)} className="pill pill-idle self-start">
             <Smartphone size={13} /> 複製 App 網址
           </button>
+        </section>
+
+        <section className="doodle-card p-4 flex flex-col gap-3">
+          <SectionTitle>🗺️ 從 Google Maps 已儲存地點搬家</SectionTitle>
+          <p className="text-[13px] text-[#2D251E] leading-relaxed">
+            手機 Google Maps 的「已儲存」清單無法被網頁直接讀取，但可以一次搬過來：
+            <br />
+            ① 到 <b>takeout.google.com</b> 只勾選「地圖（您的地點）」與「已儲存」→ 匯出 → 下載 zip
+            <br />
+            ② 解壓後把 <b>Saved Places.json</b>（含座標）或各清單 <b>.csv</b> 選進來（可多選）
+          </p>
+          <label className="doodle-btn inline-flex items-center justify-center gap-1.5 bg-[#F2CA62] text-[#3F2E0C] font-black py-2.5 text-[13px] cursor-pointer">
+            <MapPinned size={15} /> 選擇 Takeout 檔案匯入
+            <input type="file" accept=".json,.csv,application/json,text/csv" multiple className="hidden" onChange={(e) => void importTakeout(e.target.files)} />
+          </label>
+          {importMsg && <p className="text-[12.5px] font-bold text-[#5C5044]">{importMsg}</p>}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => void runBatchGeocode()} disabled={geoBusy || unlocatedCount === 0} className="doodle-btn flex-1 bg-[#EFECE4] text-[#5C5044] font-black py-2.5 inline-flex items-center justify-center gap-1.5 text-[13px] disabled:opacity-50">
+              {geoBusy ? <Loader2 size={15} className="spin-slow" /> : <LocateFixed size={15} />} 一鍵定位尚未定位的店卡（{unlocatedCount}）
+            </button>
+          </div>
+          {geoProgress && <p className="text-[12px] text-[#8A7E70] font-bold">{geoProgress}</p>}
         </section>
 
         <section className="doodle-card p-4 flex flex-col gap-3">
@@ -186,7 +248,7 @@ export const SettingsModal: React.FC<{
 
         {hiddenCurated.length > 0 && (
           <section className="doodle-card p-4 flex flex-col gap-2">
-            <SectionTitle>🙈 已隱藏的範例卡</SectionTitle>
+            <SectionTitle>🙈 已隱藏的精選卡</SectionTitle>
             {hiddenCurated.map((s) => (
               <div key={s.id} className="flex items-center justify-between text-[13px] font-bold">
                 <span className="truncate">{s.name}</span>
@@ -201,7 +263,7 @@ export const SettingsModal: React.FC<{
         <section className="flex items-start gap-2 text-[11.5px] text-[#8A7E70] leading-relaxed pb-2">
           <MarshBadge className="w-5 h-5 mt-0.5 shrink-0" />
           <p>
-            BoboPocket 由 Quokka & BOBO 陪妳收集雙北口袋名單 🤎 精選範例卡由 Bobo 管家透過 GitHub 維護；個人店卡、想去／已踩點與筆記只存在妳的加密保險箱。地圖資料 © OpenStreetMap 貢獻者。
+            BoboPocket 由 Quokka & BOBO 陪妳收集雙北口袋名單 🤎 精選卡由 Bobo 管家透過 GitHub 維護；個人店卡、想去／已踩點與筆記只存在妳的加密保險箱。地圖資料 © OpenStreetMap 貢獻者。
           </p>
         </section>
       </div>

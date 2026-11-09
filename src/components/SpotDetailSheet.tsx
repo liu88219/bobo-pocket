@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MapPin, TrainFront, Clock, Wallet, ExternalLink, Navigation, Pencil, EyeOff, Trash2, Share2, Camera, Loader2 } from 'lucide-react';
 import { ResolvedSpot, PersonalMark, MarkStatus, RevisitLevel, getLocalDateKey } from '../types/pocket';
 import { REVISIT_META, tagLabel } from '../data/categories';
-import { buildGoogleMapsUrl } from '../services/spotParser';
+import { googleMapsViewUrl, googleMapsDirectionsUrl, appleMapsViewUrl, appleMapsDirectionsUrl, isIOS, formatDistance } from '../services/mapLinks';
 import { processImageFile } from '../services/imageTools';
 import { Modal, PLATFORM_LABEL, SectionTitle } from './ui';
 import { CategoryPill, CoverArea } from './SpotCard';
@@ -36,11 +36,13 @@ export const SpotDetailSheet: React.FC<{
   onShare: (spot: ResolvedSpot) => void;
   onToast: (msg: string) => void;
   loadHiResPhoto?: (spot: ResolvedSpot) => Promise<string | null>;
-}> = ({ spot, onClose, onSaveMark, onEdit, onHideOrDelete, onShare, onToast, loadHiResPhoto }) => {
+  distanceKm?: number;
+}> = ({ spot, onClose, onSaveMark, onEdit, onHideOrDelete, onShare, onToast, loadHiResPhoto, distanceKm }) => {
   const [draft, setDraft] = useState<MarkDraft>(markToDraft(spot?.mark));
   const [dirty, setDirty] = useState(false);
   const [imgBusy, setImgBusy] = useState(false);
   const [hiRes, setHiRes] = useState<string | null>(null);
+  const [showMapMenu, setShowMapMenu] = useState(false);
 
   useEffect(() => {
     setDraft(markToDraft(spot?.mark));
@@ -89,19 +91,51 @@ export const SpotDetailSheet: React.FC<{
     setDirty(false);
   };
 
-  const mapsUrl = buildGoogleMapsUrl(spot.name, spot.address, spot.lat, spot.lng);
   const platform = spot.source?.platform;
   const displayCover = hiRes || spot.coverThumb;
+  const onIOS = isIOS();
+  const mapOptions: Array<{ label: string; url: string; primary?: boolean }> = [
+    { label: '🗺️ Google Maps 查看', url: googleMapsViewUrl(spot.name, spot.address, spot.lat, spot.lng), primary: !onIOS },
+    { label: '🧭 Google Maps 導航', url: googleMapsDirectionsUrl(spot.name, spot.address, spot.lat, spot.lng) },
+    { label: '🍎 Apple 地圖 查看', url: appleMapsViewUrl(spot.name, spot.address, spot.lat, spot.lng), primary: onIOS },
+    { label: '🧭 Apple 地圖 導航', url: appleMapsDirectionsUrl(spot.name, spot.address, spot.lat, spot.lng) },
+  ];
 
   return (
     <Modal
       open={Boolean(spot)}
       onClose={onClose}
       footer={
-        <div className="flex gap-2">
-          <a href={mapsUrl} target="_blank" rel="noreferrer" className="doodle-btn flex-1 bg-[#1E3158] text-white font-black py-3 inline-flex items-center justify-center gap-1.5 text-[14px]">
-            <Navigation size={16} /> Google Maps
-          </a>
+        <div className="flex flex-col gap-2">
+          {showMapMenu && (
+            <div className="grid grid-cols-2 gap-2 fade-in">
+              {mapOptions.map((o) => (
+                <a key={o.label} href={o.url} target="_blank" rel="noreferrer" className="doodle-btn bg-[#EFECE4] text-[#2D251E] font-black py-2.5 text-[13px] text-center">
+                  {o.label}
+                </a>
+              ))}
+              {spot.address && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(spot.address || '');
+                      onToast('📋 已複製地址，可貼到任何地圖 App');
+                    } catch {
+                      onToast(spot.address || '');
+                    }
+                  }}
+                  className="doodle-btn col-span-2 bg-[#EFECE4] text-[#5C5044] font-black py-2.5 text-[13px]"
+                >
+                  📋 複製地址
+                </button>
+              )}
+            </div>
+          )}
+          <div className="flex gap-2">
+          <button type="button" onClick={() => setShowMapMenu((v) => !v)} className="doodle-btn flex-1 bg-[#1E3158] text-white font-black py-3 inline-flex items-center justify-center gap-1.5 text-[14px]">
+            <Navigation size={16} /> 用地圖打開
+          </button>
           {spot.source?.url && (
             <a href={spot.source.url} target="_blank" rel="noreferrer" className="doodle-btn flex-1 bg-[#EFECE4] text-[#2D251E] font-black py-3 inline-flex items-center justify-center gap-1.5 text-[14px]">
               <ExternalLink size={16} /> 回看原短片
@@ -112,6 +146,7 @@ export const SpotDetailSheet: React.FC<{
               💾 儲存
             </button>
           )}
+          </div>
         </div>
       }
     >
@@ -147,6 +182,9 @@ export const SpotDetailSheet: React.FC<{
                 <TrainFront size={14} className="text-[#1E3158]" />
                 {spot.mrt}
               </span>
+            )}
+            {typeof distanceKm === 'number' && (
+              <span className="rounded-full bg-[#DCE5D2] text-[#3F5A3A] px-2 py-0.5 text-[11.5px] font-black">📍 距離我 {formatDistance(distanceKm)}</span>
             )}
           </div>
           {spot.address && (
@@ -322,7 +360,7 @@ export const SpotDetailSheet: React.FC<{
           <button type="button" onClick={() => onHideOrDelete(spot)} className="pill pill-idle text-[#8A4A40]">
             {spot.origin === 'curated' ? (
               <>
-                <EyeOff size={13} /> 隱藏範例卡
+                <EyeOff size={13} /> 隱藏精選卡
               </>
             ) : (
               <>

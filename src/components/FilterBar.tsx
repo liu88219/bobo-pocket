@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, X, LocateFixed, Loader2 } from 'lucide-react';
 import { SpotFilters, DEFAULT_FILTERS } from '../services/spotResolver';
 import { CATEGORIES, TAGS } from '../data/categories';
 import { ResolvedSpot } from '../types/pocket';
@@ -10,7 +10,10 @@ export const FilterBar: React.FC<{
   filters: SpotFilters;
   onChange: (next: SpotFilters) => void;
   allSpots: ResolvedSpot[];
-}> = ({ filters, onChange, allSpots }) => {
+  nearbyOn?: boolean;
+  nearbyBusy?: boolean;
+  onToggleNearby?: () => void;
+}> = ({ filters, onChange, allSpots, nearbyOn = false, nearbyBusy = false, onToggleNearby }) => {
   const [showMore, setShowMore] = useState(false);
 
   const counts = useMemo(() => {
@@ -59,6 +62,11 @@ export const FilterBar: React.FC<{
             <span className="opacity-70">{counts[city] ?? 0}</span>
           </Chip>
         ))}
+        {onToggleNearby && (
+          <button type="button" onClick={onToggleNearby} className={`pill ${nearbyOn ? 'bg-[#DCE5D2] text-[#3F5A3A] border border-[#C9D6BE]' : 'pill-idle'}`}>
+            {nearbyBusy ? <Loader2 size={13} className="spin-slow" /> : <LocateFixed size={13} />} 我附近
+          </button>
+        )}
       </div>
 
       <div className="relative">

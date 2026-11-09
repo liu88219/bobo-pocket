@@ -4,8 +4,8 @@ import { ResolvedSpot, Spot, VaultState, SpotCategory, MarkStatus } from '../typ
 /**
  * 將公開層 curated 卡片（套用個人覆寫／隱藏）與私有層 personal 卡片合併成前台顯示清單
  */
-export function resolveAllSpots(vault: VaultState, includeHidden = false): ResolvedSpot[] {
-  const curated: ResolvedSpot[] = CURATED_SPOTS.map((base) => {
+export function resolveAllSpots(vault: VaultState, includeHidden = false, curatedList: Spot[] = CURATED_SPOTS): ResolvedSpot[] {
+  const curated: ResolvedSpot[] = curatedList.map((base) => {
     const ov = vault.overrides[base.id];
     const hidden = Boolean(vault.curatedVisibility[base.id]?.hidden);
     const merged: Spot = ov ? { ...base, ...stripUndefined(ov), id: base.id, origin: 'curated', createdAt: base.createdAt } : base;

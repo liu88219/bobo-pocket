@@ -199,3 +199,29 @@ body {
   background: transparent;
   border: none;
 }
+
+.bp-me-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #1e3158;
+  border: 3px solid #faf8f3;
+  box-shadow:
+    0 0 0 6px rgba(30, 49, 88, 0.18),
+    0 4px 10px rgba(30, 49, 88, 0.35);
+  animation: mePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes mePulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 6px rgba(30, 49, 88, 0.18),
+      0 4px 10px rgba(30, 49, 88, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 0 12px rgba(30, 49, 88, 0.08),
+      0 4px 10px rgba(30, 49, 88, 0.35);
+  }
+}

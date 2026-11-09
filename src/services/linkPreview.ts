@@ -1,5 +1,6 @@
 import { SourcePlatform } from '../types/pocket';
 import { detectPlatform } from './spotParser';
+import { extractPlaceFromGoogleHtml, parseMapShareUrl } from './mapLinks';
 
 /**
  * 盡力而為的公開連結預覽（免金鑰）：
@@ -17,6 +18,11 @@ export interface LinkPreview {
   /** 預覽圖經代理下載並縮圖後的 data URL（可長期保存） */
   imageDataUrl?: string;
   via?: string;
+  /** 地圖連結專屬：店名／地址／座標 */
+  placeName?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
@@ -170,6 +176,31 @@ export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreview> {
   const platform = detectPlatform(url);
   const result: LinkPreview = { platform };
   if (!/^https?:\/\//i.test(url)) return result;
+
+  if (platform === 'googlemaps' || platform === 'applemaps') {
+    const direct = parseMapShareUrl(url);
+    result.placeName = direct.name;
+    result.address = direct.address;
+    result.lat = direct.lat;
+    result.lng = direct.lng;
+    if (platform === 'googlemaps' && (direct.isShortLink || direct.lat === undefined || !direct.name)) {
+      // 短網址／缺座標：經代理展開地點頁，盡力讀 og:title 與 !3d!4d 座標
+      const page = await fetchHtmlViaProxies(url);
+      if (page) {
+        const fromHtml = extractPlaceFromGoogleHtml(page.html);
+        if (fromHtml.name && !result.placeName) result.placeName = fromHtml.name;
+        if (fromHtml.address && !result.address) result.address = fromHtml.address;
+        if (fromHtml.lat !== undefined && result.lat === undefined) {
+          result.lat = fromHtml.lat;
+          result.lng = fromHtml.lng;
+        }
+        result.via = page.via;
+      }
+    }
+    if (result.placeName) result.title = result.placeName;
+    if (result.address) result.description = result.address;
+    return result;
+  }
 
   if (platform === 'youtube' || platform === 'tiktok' || platform === 'facebook') {
     const ne = await fetchNoembed(url);

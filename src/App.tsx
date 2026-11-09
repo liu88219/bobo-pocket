@@ -29,6 +29,9 @@ import {
 } from './services/cloudSync';
 import { deriveVaultIdentity } from './services/cryptoVault';
 import { resolveAllSpots, applyFilters, sortSpots, SpotFilters, DEFAULT_FILTERS } from './services/spotResolver';
+import { distanceKm, formatDistance, getCurrentPosition } from './services/mapLinks';
+import { geocodeSpotSmart } from './services/geocode';
+import { ImportedPlace, importedPlaceToSpot, normalizePlaceKey } from './services/importers';
 import { CATEGORY_MAP } from './data/categories';
 import { Toast } from './components/ui';
 import { FilterBar } from './components/FilterBar';
@@ -84,6 +87,9 @@ export const App: React.FC = () => {
 
   const [view, setView] = useState<View>(urlParams.view || 'pocket');
   const [filters, setFilters] = useState<SpotFilters>(DEFAULT_FILTERS);
+  const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearbyOn, setNearbyOn] = useState(false);
+  const [nearbyBusy, setNearbyBusy] = useState(false);
 
   const [quickAddOpen, setQuickAddOpen] = useState<boolean>(() => Boolean(urlParams.add || urlParams.text));
   const [quickAddPrefill, setQuickAddPrefill] = useState<QuickAddPrefill | null>(() =>
@@ -250,7 +256,20 @@ export const App: React.FC = () => {
 
   // ---------- Derived ----------
   const allSpots = useMemo(() => resolveAllSpots(vault), [vault]);
-  const filteredSpots = useMemo(() => sortSpots(applyFilters(allSpots, filters)), [allSpots, filters]);
+  const distances = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!myLocation) return m;
+    for (const s of allSpots) {
+      if (typeof s.lat === 'number' && typeof s.lng === 'number') m.set(s.id, distanceKm(myLocation.lat, myLocation.lng, s.lat, s.lng));
+    }
+    return m;
+  }, [allSpots, myLocation]);
+  const filteredSpots = useMemo(() => {
+    const base = sortSpots(applyFilters(allSpots, filters));
+    if (!nearbyOn || !myLocation) return base;
+    return [...base].sort((a, b) => (distances.get(a.id) ?? Infinity) - (distances.get(b.id) ?? Infinity));
+  }, [allSpots, filters, nearbyOn, myLocation, distances]);
+  const unlocatedPersonal = useMemo(() => vault.personalSpots.filter((s) => typeof s.lat !== 'number' || typeof s.lng !== 'number'), [vault.personalSpots]);
   const detailSpot = useMemo(() => (detailId ? resolveAllSpots(vault, true).find((s) => s.id === detailId) || null : null), [detailId, vault]);
   const stats = useMemo(() => {
     let want = 0;
@@ -359,9 +378,9 @@ export const App: React.FC = () => {
     (spot: ResolvedSpot) => {
       const now = Date.now();
       if (spot.origin === 'curated') {
-        if (!window.confirm(`隱藏範例卡「${spot.name}」？之後可在設定頁還原。`)) return;
+        if (!window.confirm(`隱藏精選卡「${spot.name}」？之後可在設定頁還原。`)) return;
         commitVaultUpdate((prev) => ({ ...prev, curatedVisibility: { ...prev.curatedVisibility, [spot.id]: { hidden: true, updatedAt: now } } }));
-        showToast('🙈 已隱藏範例卡');
+        showToast('🙈 已隱藏精選卡');
       } else {
         if (!window.confirm(`刪除店卡「${spot.name}」？此動作會同步到所有裝置。`)) return;
         commitVaultUpdate((prev) => ({
@@ -380,7 +399,7 @@ export const App: React.FC = () => {
   const handleUnhideCurated = useCallback(
     (id: string) => {
       commitVaultUpdate((prev) => ({ ...prev, curatedVisibility: { ...prev.curatedVisibility, [id]: { hidden: false, updatedAt: Date.now() } } }));
-      showToast('已還原範例卡');
+      showToast('已還原精選卡');
     },
     [commitVaultUpdate, showToast]
   );
@@ -500,6 +519,75 @@ export const App: React.FC = () => {
     []
   );
 
+  const toggleNearby = useCallback(async () => {
+    if (nearbyOn) {
+      setNearbyOn(false);
+      return;
+    }
+    setNearbyBusy(true);
+    const pos = await getCurrentPosition();
+    setNearbyBusy(false);
+    if (!pos) {
+      showToast('抓不到目前位置，請確認已允許定位權限（iPhone：設定 → Safari → 位置）');
+      return;
+    }
+    setMyLocation(pos);
+    setNearbyOn(true);
+    showToast('📍 已依距離排序，地圖上藍點是妳的位置');
+  }, [nearbyOn, showToast]);
+
+  const handleImportPlaces = useCallback(
+    (places: ImportedPlace[]): { added: number; skipped: number } => {
+      const now = Date.now();
+      const existingKeys = new Set(vaultRef.current.personalSpots.map((s) => normalizePlaceKey(s.name, s.address)));
+      const existingUrls = new Set(vaultRef.current.personalSpots.map((s) => s.source?.url).filter(Boolean) as string[]);
+      const fresh: Spot[] = [];
+      let skipped = 0;
+      for (const p of places) {
+        const key = normalizePlaceKey(p.name, p.address);
+        if (existingKeys.has(key) || (p.url && existingUrls.has(p.url))) {
+          skipped++;
+          continue;
+        }
+        existingKeys.add(key);
+        if (p.url) existingUrls.add(p.url);
+        fresh.push(importedPlaceToSpot(p, now));
+      }
+      if (fresh.length > 0) {
+        commitVaultUpdate((prev) => ({ ...prev, personalSpots: [...fresh, ...prev.personalSpots] }));
+        showToast(`🗺️ 已從 Google Maps 搬入 ${fresh.length} 筆地點`);
+      }
+      return { added: fresh.length, skipped };
+    },
+    [commitVaultUpdate, showToast]
+  );
+
+  const handleBatchGeocode = useCallback(
+    async (onProgress: (done: number, total: number) => void): Promise<{ located: number; failed: number }> => {
+      const targets = vaultRef.current.personalSpots.filter((s) => typeof s.lat !== 'number' || typeof s.lng !== 'number').slice(0, 80);
+      let located = 0;
+      let failed = 0;
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        onProgress(i + 1, targets.length);
+        const hit = await geocodeSpotSmart({ name: t.name, address: t.address, city: t.city, district: t.district, mrt: t.mrt });
+        if (hit) {
+          located++;
+          const lat = Number(hit.lat.toFixed(6));
+          const lng = Number(hit.lng.toFixed(6));
+          commitVaultUpdate((prev) => ({
+            ...prev,
+            personalSpots: prev.personalSpots.map((s) => (s.id === t.id ? { ...s, lat, lng, updatedAt: Date.now() } : s)),
+          }));
+        } else {
+          failed++;
+        }
+      }
+      return { located, failed };
+    },
+    [commitVaultUpdate]
+  );
+
   const openShareFor = (ids: string[]) => {
     setSharePreselected(ids);
     setDetailId(null);
@@ -561,7 +649,7 @@ export const App: React.FC = () => {
                 </div>
               </section>
             )}
-            <FilterBar filters={filters} onChange={setFilters} allSpots={allSpots} />
+            <FilterBar filters={filters} onChange={setFilters} allSpots={allSpots} nearbyOn={nearbyOn} nearbyBusy={nearbyBusy} onToggleNearby={() => void toggleNearby()} />
           </>
         )}
 
@@ -583,8 +671,12 @@ export const App: React.FC = () => {
             {filteredSpots.length === 0 ? (
               <div className="doodle-card p-6 flex flex-col items-center text-center gap-3">
                 <DuoStage className="w-full max-w-[280px] h-auto" />
-                <h3 className="text-[16px] font-black">這裡還空空的 🤎</h3>
-                <p className="text-[13px] text-[#5C5044] leading-relaxed">換個篩選條件，或按右下角「＋ 收錄」貼上 IG／Threads 短片連結，Bobo 幫妳整理成店卡！</p>
+                <h3 className="text-[16px] font-black">{allSpots.length === 0 ? '口袋名單從這裡開始 🤎' : '這個條件下還空空的 🤎'}</h3>
+                <p className="text-[13px] text-[#5C5044] leading-relaxed">
+                  {allSpots.length === 0
+                    ? '按右下角「＋ 收錄」貼上 IG／Threads／Google Maps 連結，或到 ⚙️ 設定把 Google Maps 已儲存地點一次搬進來！'
+                    : '換個篩選條件，或按右下角「＋ 收錄」貼上 IG／Threads 短片連結，Bobo 幫妳整理成店卡！'}
+                </p>
                 <button
                   type="button"
                   onClick={() => {
@@ -599,7 +691,14 @@ export const App: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredSpots.map((s) => (
-                  <SpotCard key={s.id} spot={s} onOpen={(sp) => setDetailId(sp.id)} onToggleWant={(sp) => toggleStatus(sp, 'want')} onToggleVisited={(sp) => toggleStatus(sp, 'visited')} />
+                  <SpotCard
+                    key={s.id}
+                    spot={s}
+                    onOpen={(sp) => setDetailId(sp.id)}
+                    onToggleWant={(sp) => toggleStatus(sp, 'want')}
+                    onToggleVisited={(sp) => toggleStatus(sp, 'visited')}
+                    distanceLabel={nearbyOn && distances.has(s.id) ? formatDistance(distances.get(s.id) as number) : undefined}
+                  />
                 ))}
               </div>
             )}
@@ -608,7 +707,7 @@ export const App: React.FC = () => {
 
         {view === 'map' && (
           <section className="flex flex-col gap-3">
-            <MapView spots={filteredSpots} onSelect={(s) => setDetailId(s.id)} className="h-[58vh] min-h-[360px]" />
+            <MapView spots={filteredSpots} onSelect={(s) => setDetailId(s.id)} className="h-[58vh] min-h-[360px]" myLocation={nearbyOn ? myLocation : null} focus={nearbyOn && myLocation && filteredSpots.every((s) => typeof s.lat !== 'number') ? { lat: myLocation.lat, lng: myLocation.lng, zoom: 14 } : null} />
             {filteredSpots.some((s) => typeof s.lat !== 'number') && (
               <div className="doodle-card-soft p-3 text-[12.5px] text-[#5C5044]">
                 有 {filteredSpots.filter((s) => typeof s.lat !== 'number').length} 張店卡尚未定位（打開店卡 → 編輯 → 📍 定位 即可顯示在地圖上）：
@@ -711,6 +810,7 @@ export const App: React.FC = () => {
         onShare={(s) => openShareFor([s.id])}
         onToast={showToast}
         loadHiResPhoto={loadHiResPhoto}
+        distanceKm={detailSpot && distances.has(detailSpot.id) ? distances.get(detailSpot.id) : undefined}
       />
 
       <RandomPickerModal
@@ -742,6 +842,9 @@ export const App: React.FC = () => {
         onUnhideCurated={handleUnhideCurated}
         onSetNickname={handleSetNickname}
         onToast={showToast}
+        onImportPlaces={handleImportPlaces}
+        unlocatedCount={unlocatedPersonal.length}
+        onBatchGeocode={handleBatchGeocode}
       />
 
       <Toast message={toastMsg} />
