@@ -114,25 +114,34 @@ interface KeywordRule {
   weight: number;
 }
 
-const CATEGORY_RULES: Record<SpotCategory, KeywordRule[]> = {
+const CATEGORY_RULES: Record<string, KeywordRule[]> = {
+  pasta: [{ re: /義大利麵|義麵|pasta|燉飯|risotto|義式餐廳|spaghetti|lasagna|千層麵/i, weight: 4 }],
+  hotpot: [{ re: /火鍋|鍋物|麻辣鍋|涮涮鍋|壽喜燒|shabu|石頭鍋|酸菜白肉鍋|薑母鴨|羊肉爐|個人鍋/i, weight: 4 }],
+  bbq: [{ re: /燒肉|烤肉|燒烤|yakiniku|韓式烤肉|和牛燒肉|炭火|串燒|烤串/i, weight: 4 }],
+  burger: [{ re: /漢堡|burger|美式餐廳|薯條/i, weight: 4 }],
+  birthday: [{ re: /慶生|生日餐廳|過生日|生日聚餐|紀念日餐廳|求婚|包廂|壽星|慶祝/i, weight: 4 }],
+  cake: [{ re: /生日蛋糕|客製蛋糕|蛋糕店|造型蛋糕|cake|戚風|千層蛋糕|蛋糕預訂/i, weight: 4 }],
+  western: [{ re: /西餐|牛排|steak|排餐|法式|法餐|bistro|餐酒館|fine dining|歐式|地中海|brasserie|鐵板燒/i, weight: 3 }],
   cafe: [
     { re: /咖啡廳|咖啡店|咖啡館|cafe|café|coffee|手沖|拿鐵|latte|美式|dirty|燕麥奶|咖啡/i, weight: 3 },
     { re: /跑咖|讀書|辦公|不限時|插座|wifi/i, weight: 1 },
   ],
   dessert: [
-    { re: /甜點|蛋糕|可麗露|肉桂捲|司康|布丁|千層|泡芙|塔|冰淇淋|雪花冰|刨冰|gelato|dessert|甜品|鬆餅|舒芙蕾|早午餐|brunch|吐司|貝果|麵包店|烘焙/i, weight: 3 },
+    { re: /甜點|可麗露|肉桂捲|司康|布丁|千層|泡芙|塔|冰淇淋|雪花冰|刨冰|gelato|dessert|甜品|鬆餅|舒芙蕾|早午餐|brunch|吐司|貝果|麵包店|烘焙/i, weight: 3 },
     { re: /下午茶|茶點/i, weight: 2 },
   ],
   bar: [
-    { re: /酒吧|bar\b|調酒|cocktail|居酒屋|精釀|啤酒|清酒|威士忌|深夜食堂|宵夜|消夜|熱炒|燒烤攤|串燒/i, weight: 3 },
+    { re: /酒吧|bar\b|調酒|cocktail|居酒屋|精釀|啤酒|清酒|威士忌|speakeasy|wine bar|小酒館/i, weight: 3 },
     { re: /微醺|小酌|喝一杯/i, weight: 2 },
   ],
+  'late-night': [{ re: /宵夜|消夜|深夜食堂|凌晨|熱炒|滷味|鹹酥雞|鹽酥雞|深夜|24小時|24h|半夜/i, weight: 3 }],
+  'special-spot': [{ re: /秘境|特別景點|光影|裝置藝術|沉浸式|限定展|打卡新景點|天空步道|玻璃|纜車|螢火蟲|繡球花|落羽松|芒草|櫻花|楓葉/i, weight: 4 }],
   spot: [
-    { re: /展覽|特展|美術館|博物館|景點|步道|公園|老街|夜景|古蹟|園區|市集|散步|野餐|溫泉|海邊|碼頭|瀑布|賞花|露營|農場|打卡景點|一日遊|半日遊|秘境/i, weight: 3 },
+    { re: /展覽|特展|美術館|博物館|景點|步道|公園|老街|夜景|古蹟|園區|市集|散步|野餐|溫泉|海邊|碼頭|瀑布|賞花|露營|農場|打卡景點|一日遊|半日遊/i, weight: 3 },
     { re: /拍照|好拍|風景|看海|爬山|登山/i, weight: 1 },
   ],
   food: [
-    { re: /火鍋|燒肉|拉麵|壽司|義大利麵|義式|牛排|小吃|便當|牛肉麵|滷肉飯|雞排|鹽酥雞|餐廳|餐酒館|丼飯|定食|日料|日式|韓式|泰式|港式|越南|越式|中餐|台菜|熱炒|麻辣|麵店|水餃|鍋貼|早餐店|豆漿|燒餅|油條|漢堡|披薩|pizza|炸雞|吃到飽|buffet|合菜|海鮮|餃子|米粉|肉圓|蚵仔煎|夜市|美食|好吃|必吃|午餐|晚餐|餐點|套餐/i, weight: 2 },
+    { re: /拉麵|壽司|小吃|便當|牛肉麵|滷肉飯|雞排|餐廳|丼飯|定食|日料|日式|韓式|泰式|港式|越南|越式|中餐|台菜|麻辣|麵店|水餃|鍋貼|早餐店|豆漿|燒餅|油條|披薩|pizza|炸雞|吃到飽|buffet|合菜|海鮮|餃子|米粉|肉圓|蚵仔煎|夜市|美食|好吃|必吃|午餐|晚餐|餐點|套餐/i, weight: 2 },
   ],
 };
 
@@ -147,7 +156,8 @@ const TAG_RULES: Array<{ id: string; re: RegExp }> = [
   { id: 'late-night', re: /宵夜|消夜|深夜|營業到|凌晨|24小時|24h|半夜/i },
   { id: 'photogenic', re: /好拍|網美|ig打卡|打卡|拍照|美照|氛圍感|很有氛圍|超美/i },
   { id: 'queue', re: /排隊|人潮|很多人|超夯|爆紅|名店|排很久|現場候位/i },
-  { id: 'group', re: /聚餐|多人|聚會|包廂|家庭聚|公司聚|慶生/i },
+  { id: 'group', re: /聚餐|多人|聚會|包廂|家庭聚|公司聚/i },
+  { id: 'celebration', re: /慶生|生日|紀念日|求婚|慶祝|壽星/i },
   { id: 'kids', re: /親子|小孩|兒童|嬰兒|寶寶|推車/i },
   { id: 'budget', re: /平價|便宜|銅板|百元|cp值|cp 值|划算|高cp/i },
   { id: 'date', re: /約會|情侶|浪漫|紀念日|燭光/i },
@@ -165,7 +175,7 @@ const GENERIC_HASHTAG_RE =
 function inferCategory(corpus: string): { category: SpotCategory; score: number } {
   let best: SpotCategory = 'food';
   let bestScore = 0;
-  (Object.keys(CATEGORY_RULES) as SpotCategory[]).forEach((cat) => {
+  Object.keys(CATEGORY_RULES).forEach((cat) => {
     let score = 0;
     for (const rule of CATEGORY_RULES[cat]) {
       const matches = corpus.match(new RegExp(rule.re.source, rule.re.flags.includes('g') ? rule.re.flags : rule.re.flags + 'g'));

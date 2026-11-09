@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { LocateFixed, ImagePlus, Trash2, Loader2 } from 'lucide-react';
 import { Spot, SpotCategory, SourcePlatform, makeId } from '../types/pocket';
-import { CATEGORIES, TAGS } from '../data/categories';
+import { TAGS } from '../data/categories';
+import { useCategories } from './CategoryContext';
 import { PRIMARY_CITIES, OTHER_CITIES, districtsForCity, stationsForCity, ZONES } from '../data/taipeiGeo';
 import { geocodeSpotSmart, extractLatLngFromUrl } from '../services/geocode';
 import { processImageFile } from '../services/imageTools';
@@ -128,6 +129,7 @@ export const SpotFormModal: React.FC<{
   onToast: (msg: string) => void;
 }> = ({ open, initial, title = '✍️ 店家資料', onCancel, onSave, onToast }) => {
   const [d, setD] = useState<SpotFormDraft>(initial);
+  const { list: CATEGORIES } = useCategories();
   const [locating, setLocating] = useState(false);
   const [showPinMap, setShowPinMap] = useState(false);
   const [imgBusy, setImgBusy] = useState(false);

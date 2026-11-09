@@ -7,7 +7,16 @@
  *    透過通行碼加密同步至雙永久雲端 KV（textdb.online + textdb.dev）。
  */
 
-export type SpotCategory = 'food' | 'cafe' | 'dessert' | 'spot' | 'bar';
+/** 分類 id（可由使用者自訂新增，預設見 data/categories.ts） */
+export type SpotCategory = string;
+
+export interface CategoryDef {
+  id: string;
+  label: string;
+  emoji: string;
+  bg: string;
+  fg: string;
+}
 
 export type SourcePlatform =
   | 'instagram'
@@ -113,6 +122,9 @@ export interface VaultState {
   inbox: InboxItem[];
   curatedVisibility: Record<string, CuratedVisibility>;
   customTags: string[];
+  /** 使用者自訂的分類清單（undefined = 使用預設） */
+  categories?: CategoryDef[];
+  categoriesUpdatedAt?: number;
   deletedIds: Record<string, number>;
 }
 

@@ -1,5 +1,5 @@
 import LZString from 'lz-string';
-import { Spot } from '../types/pocket';
+import { Spot, CategoryDef } from '../types/pocket';
 import { writePermanentCloud, readPermanentCloud } from './cloudSync';
 
 /**
@@ -12,6 +12,8 @@ export interface SharePayload {
   title: string;
   from: string;
   createdAt: number;
+  /** 分享者的分類定義（朋友端用來顯示 emoji／名稱） */
+  categories?: Array<Pick<CategoryDef, 'id' | 'label' | 'emoji' | 'bg' | 'fg'>>;
   spots: Array<
     Pick<
       Spot,
@@ -46,7 +48,7 @@ function randomCode(len = 10): string {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
 }
 
-export function buildSharePayload(spots: Spot[], title: string, from: string): SharePayload {
+export function buildSharePayload(spots: Spot[], title: string, from: string, categories: CategoryDef[] = []): SharePayload {
   const slim = spots.map((s) => ({
     id: s.id,
     name: s.name,
@@ -67,7 +69,9 @@ export function buildSharePayload(spots: Spot[], title: string, from: string): S
     coverThumb: s.coverThumb,
   }));
   // 控制總量：若含圖超過 150k 字元，逐步移除封面圖
-  let payload: SharePayload = { v: 1, title, from, createdAt: Date.now(), spots: slim };
+  const usedIds = new Set(spots.map((s) => s.category));
+  const cats = categories.filter((c) => usedIds.has(c.id)).map(({ id, label, emoji, bg, fg }) => ({ id, label, emoji, bg, fg }));
+  let payload: SharePayload = { v: 1, title, from, createdAt: Date.now(), categories: cats, spots: slim };
   let json = JSON.stringify(payload);
   let idx = slim.length - 1;
   while (json.length > 150000 && idx >= 0) {

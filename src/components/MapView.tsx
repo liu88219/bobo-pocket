@@ -1,16 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { ResolvedSpot } from '../types/pocket';
-import { CATEGORY_MAP } from '../data/categories';
+import { ResolvedSpot, CategoryDef } from '../types/pocket';
+import { useCategories } from './CategoryContext';
 
 const TAIPEI_CENTER: [number, number] = [25.04, 121.53];
 
-function markerIcon(spot: ResolvedSpot): L.DivIcon {
+function markerIcon(spot: ResolvedSpot, meta: CategoryDef): L.DivIcon {
   const status = spot.mark?.status || 'none';
   const cls = status === 'visited' ? 'bp-marker visited' : status === 'want' ? 'bp-marker want' : 'bp-marker';
   return L.divIcon({
     className: 'bp-marker-wrap',
-    html: `<div class="${cls}">${CATEGORY_MAP[spot.category].emoji}</div>`,
+    html: `<div class="${cls}">${meta.emoji}</div>`,
     iconSize: [36, 36],
     iconAnchor: [18, 18],
     popupAnchor: [0, -16],
@@ -36,6 +36,7 @@ export const MapView: React.FC<{
   const meRef = useRef<L.Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const { meta: categoryMetaOf } = useCategories();
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -70,8 +71,8 @@ export const MapView: React.FC<{
     const bounds: L.LatLngExpression[] = [];
     for (const s of spots) {
       if (typeof s.lat !== 'number' || typeof s.lng !== 'number') continue;
-      const m = L.marker([s.lat, s.lng], { icon: markerIcon(s) });
-      const meta = CATEGORY_MAP[s.category];
+      const meta = categoryMetaOf(s.category);
+      const m = L.marker([s.lat, s.lng], { icon: markerIcon(s, meta) });
       const sub = [s.district, s.mrt].filter(Boolean).join('・');
       m.bindPopup(
         `<div style="min-width:160px"><div style="font-weight:900;font-size:14px;margin-bottom:2px">${escapeHtml(s.name)}</div>` +
@@ -112,7 +113,7 @@ export const MapView: React.FC<{
       map.setView(bounds[0], 15);
     }
     setTimeout(() => map.invalidateSize(), 80);
-  }, [spots, focus, myLocation]);
+  }, [spots, focus, myLocation, categoryMetaOf]);
 
   useEffect(() => {
     const map = mapRef.current;

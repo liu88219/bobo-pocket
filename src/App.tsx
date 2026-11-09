@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Settings, Cloud, CloudOff, Dices, Share2, Map as MapIcon, Inbox, LayoutGrid } from 'lucide-react';
+import { Plus, Settings, Cloud, CloudOff, Dices, Share2, Map as MapIcon, Inbox, LayoutGrid, Compass } from 'lucide-react';
 import {
   VaultState,
   ResolvedSpot,
@@ -8,7 +8,7 @@ import {
   MarkStatus,
   Spot,
   SpotOverride,
-  makeId,
+  CategoryDef,
   getLocalDateKey,
 } from './types/pocket';
 import {
@@ -32,7 +32,10 @@ import { resolveAllSpots, applyFilters, sortSpots, SpotFilters, DEFAULT_FILTERS 
 import { distanceKm, formatDistance, getCurrentPosition } from './services/mapLinks';
 import { geocodeSpotSmart } from './services/geocode';
 import { ImportedPlace, importedPlaceToSpot, normalizePlaceKey } from './services/importers';
-import { CATEGORY_MAP } from './data/categories';
+import { resolveCategories, categoryMeta } from './data/categories';
+import { CategoryProvider } from './components/CategoryContext';
+import { ExploreView } from './components/ExploreView';
+import { DiscoverResult, DiscoverArea, discoverResultToSpot } from './services/discover';
 import { Toast } from './components/ui';
 import { FilterBar } from './components/FilterBar';
 import { SpotCard } from './components/SpotCard';
@@ -46,13 +49,13 @@ import { ShareComposerModal, ShareView } from './components/ShareViews';
 import { SettingsModal } from './components/SettingsModal';
 import { HeroBanner, DuoStage, QuokkaMapBadge } from './components/QuokkaBoboArt';
 
-type View = 'pocket' | 'map' | 'inbox';
+type View = 'pocket' | 'map' | 'explore' | 'inbox';
 
 function readUrlParams(): { share?: string; add?: string; text?: string; view?: View; spot?: string } {
   try {
     const p = new URLSearchParams(window.location.search);
     const rawView = p.get('view');
-    const view: View | undefined = rawView === 'map' || rawView === 'inbox' || rawView === 'pocket' ? rawView : undefined;
+    const view: View | undefined = rawView === 'map' || rawView === 'inbox' || rawView === 'pocket' || rawView === 'explore' ? rawView : undefined;
     return {
       share: p.get('share') || undefined,
       add: p.get('add') || undefined,
@@ -255,6 +258,7 @@ export const App: React.FC = () => {
   }, [urlParams.add, urlParams.text, urlParams.view, urlParams.spot]);
 
   // ---------- Derived ----------
+  const categories = useMemo(() => resolveCategories(vault), [vault]);
   const allSpots = useMemo(() => resolveAllSpots(vault), [vault]);
   const distances = useMemo(() => {
     const m = new Map<string, number>();
@@ -283,13 +287,13 @@ export const App: React.FC = () => {
 
   const scopeLabel = useMemo(() => {
     const parts: string[] = [filters.city];
-    if (filters.category !== 'all') parts.push(CATEGORY_MAP[filters.category].label);
+    if (filters.category !== 'all') parts.push(categoryMeta(categories, filters.category).label);
     if (filters.status === 'want') parts.push('想去');
     if (filters.status === 'visited') parts.push('已踩點');
     if (filters.district) parts.push(filters.district);
     if (filters.mrt) parts.push(filters.mrt);
     return parts.join('・');
-  }, [filters]);
+  }, [filters, categories]);
 
   // ---------- Handlers ----------
   const setMark = useCallback(
@@ -439,7 +443,9 @@ export const App: React.FC = () => {
       setQuickAddOpen(false);
       setQuickAddPrefill(null);
       setFormFromInbox(result.fromInboxId);
-      setFormDraft(result.draft);
+      const cats = resolveCategories(vaultRef.current);
+      const draft = cats.some((c) => c.id === result.draft.category) ? result.draft : { ...result.draft, category: cats[0].id };
+      setFormDraft(draft);
       if (result.parsed.detected.length > 0) showToast(`✨ 偵測到：${result.parsed.detected.slice(0, 3).join('、')}`);
       else showToast('沒抓到太多資訊，幫 Bobo 補一下店名和地區吧');
     },
@@ -588,6 +594,56 @@ export const App: React.FC = () => {
     [commitVaultUpdate]
   );
 
+  const handleChangeCategories = useCallback(
+    (next: CategoryDef[]) => {
+      const cleaned = next.map((c) => ({ ...c, label: c.label.trim() || c.id, emoji: c.emoji || '🍽️' }));
+      commitVaultUpdate((prev) => ({ ...prev, categories: cleaned, categoriesUpdatedAt: Date.now() }));
+    },
+    [commitVaultUpdate]
+  );
+
+  const handleDeleteCategory = useCallback(
+    (id: string) => {
+      commitVaultUpdate((prev) => {
+        const current = resolveCategories(prev);
+        const remaining = current.filter((c) => c.id !== id);
+        if (remaining.length === 0) return prev;
+        const fallback = remaining[0].id;
+        const now = Date.now();
+        const overrides = { ...prev.overrides };
+        for (const [sid, ov] of Object.entries(overrides)) {
+          if (ov.category === id) overrides[sid] = { ...ov, category: fallback, updatedAt: now };
+        }
+        return {
+          ...prev,
+          categories: remaining,
+          categoriesUpdatedAt: now,
+          personalSpots: prev.personalSpots.map((sp) => (sp.category === id ? { ...sp, category: fallback, updatedAt: now } : sp)),
+          overrides,
+        };
+      });
+      showToast('已刪除分類');
+    },
+    [commitVaultUpdate, showToast]
+  );
+
+  const categoryUsage = useCallback((id: string) => allSpots.filter((sp) => sp.category === id).length, [allSpots]);
+
+  const handleAddDiscovered = useCallback(
+    (results: DiscoverResult[], categoryId: string, themeLabel: string, area: DiscoverArea) => {
+      const now = Date.now();
+      const existing = new Set(vaultRef.current.personalSpots.map((sp) => sp.name.toLowerCase().replace(/\s+/g, '')));
+      const fresh = results.filter((r) => !existing.has(r.name.toLowerCase().replace(/\s+/g, ''))).map((r) => discoverResultToSpot(r, categoryId, themeLabel, now, area));
+      if (fresh.length === 0) {
+        showToast('這些店都已經在口袋裡囉');
+        return;
+      }
+      commitVaultUpdate((prev) => ({ ...prev, personalSpots: [...fresh, ...prev.personalSpots] }));
+      showToast(fresh.length === 1 ? `🤎 已收錄「${fresh[0].name}」` : `🤎 已收錄 ${fresh.length} 家到口袋`);
+    },
+    [commitVaultUpdate, showToast]
+  );
+
   const openShareFor = (ids: string[]) => {
     setSharePreselected(ids);
     setDetailId(null);
@@ -597,13 +653,15 @@ export const App: React.FC = () => {
   // ---------- Share (read-only) route ----------
   if (shareCode) {
     return (
-      <ShareView
-        code={shareCode}
-        onOpenApp={() => {
-          cleanUrlParams();
-          setShareCode(undefined);
-        }}
-      />
+      <CategoryProvider categories={categories}>
+        <ShareView
+          code={shareCode}
+          onOpenApp={() => {
+            cleanUrlParams();
+            setShareCode(undefined);
+          }}
+        />
+      </CategoryProvider>
     );
   }
 
@@ -619,6 +677,7 @@ export const App: React.FC = () => {
   );
 
   return (
+    <CategoryProvider categories={categories}>
     <div className="min-h-screen pb-[calc(env(safe-area-inset-bottom)+96px)]">
       <header className="sticky top-0 z-30 bg-[#ECE8DF]/92 backdrop-blur border-b border-[#E3DED2]">
         <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center gap-3">
@@ -635,7 +694,7 @@ export const App: React.FC = () => {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 pt-4 flex flex-col gap-4">
-        {view !== 'inbox' && (
+        {(view === 'pocket' || view === 'map') && (
           <>
             {view === 'pocket' && (
               <section className="relative">
@@ -674,7 +733,7 @@ export const App: React.FC = () => {
                 <h3 className="text-[16px] font-black">{allSpots.length === 0 ? '口袋名單從這裡開始 🤎' : '這個條件下還空空的 🤎'}</h3>
                 <p className="text-[13px] text-[#5C5044] leading-relaxed">
                   {allSpots.length === 0
-                    ? '按右下角「＋ 收錄」貼上 IG／Threads／Google Maps 連結，或到 ⚙️ 設定把 Google Maps 已儲存地點一次搬進來！'
+                    ? '按右下角「＋ 收錄」貼上 IG／Threads／Google Maps 連結、到「🔎 探索」找附近好店，或到 ⚙️ 設定把 Google Maps 已儲存地點一次搬進來！'
                     : '換個篩選條件，或按右下角「＋ 收錄」貼上 IG／Threads 短片連結，Bobo 幫妳整理成店卡！'}
                 </p>
                 <button
@@ -718,7 +777,7 @@ export const App: React.FC = () => {
               {filteredSpots.map((s) => (
                 <button key={s.id} type="button" onClick={() => setDetailId(s.id)} className="doodle-card shrink-0 w-44 p-3 text-left">
                   <span className="block text-[11px] font-black text-[#8A7E70]">
-                    {CATEGORY_MAP[s.category].emoji} {s.district || s.city}
+                    {categoryMeta(categories, s.category).emoji} {s.district || s.city}
                     {s.mrt ? `・${s.mrt}` : ''}
                   </span>
                   <span className="block text-[13.5px] font-black truncate">{s.name}</span>
@@ -726,6 +785,10 @@ export const App: React.FC = () => {
               ))}
             </div>
           </section>
+        )}
+
+        {view === 'explore' && (
+          <ExploreView existingSpots={allSpots} onAddResults={handleAddDiscovered} onToast={showToast} onOpenSettings={() => setSettingsOpen(true)} />
         )}
 
         {view === 'inbox' && (
@@ -768,11 +831,12 @@ export const App: React.FC = () => {
 
       {/* Bottom nav */}
       <nav className="fixed bottom-0 inset-x-0 z-40 bg-[#FAF8F3]/95 backdrop-blur border-t border-[#DDD7C9]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="max-w-5xl mx-auto grid grid-cols-3">
+        <div className="max-w-5xl mx-auto grid grid-cols-4">
           {(
             [
               ['pocket', '口袋', <LayoutGrid key="p" size={20} />],
               ['map', '地圖', <MapIcon key="m" size={20} />],
+              ['explore', '探索', <Compass key="e" size={20} />],
               ['inbox', `收件匣${vault.inbox.length ? ` (${vault.inbox.length})` : ''}`, <Inbox key="i" size={20} />],
             ] as Array<[View, string, React.ReactNode]>
           ).map(([key, label, icon]) => (
@@ -845,9 +909,14 @@ export const App: React.FC = () => {
         onImportPlaces={handleImportPlaces}
         unlocatedCount={unlocatedPersonal.length}
         onBatchGeocode={handleBatchGeocode}
+        categories={categories}
+        categoryUsage={categoryUsage}
+        onChangeCategories={handleChangeCategories}
+        onDeleteCategory={handleDeleteCategory}
       />
 
       <Toast message={toastMsg} />
     </div>
+    </CategoryProvider>
   );
 };

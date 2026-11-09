@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Eye, EyeOff, RefreshCw, Download, Upload, LifeBuoy, Smartphone, Loader2, MapPinned, LocateFixed } from 'lucide-react';
-import { VaultState } from '../types/pocket';
+import { Eye, EyeOff, RefreshCw, Download, Upload, LifeBuoy, Smartphone, Loader2, MapPinned, LocateFixed, KeyRound } from 'lucide-react';
+import { VaultState, CategoryDef } from '../types/pocket';
+import { CategoryManager } from './CategoryManager';
+import { loadPlacesKey, savePlacesKey } from '../services/discover';
 import { CURATED_SPOTS } from '../data/curatedSpots';
 import { listLocalHistorySnapshots, LocalHistorySnapshot, exportBackupJson, parseVaultJson } from '../services/cloudSync';
 import { parseTakeoutFile, ImportedPlace } from '../services/importers';
@@ -26,7 +28,12 @@ export const SettingsModal: React.FC<{
   onImportPlaces: (places: ImportedPlace[]) => { added: number; skipped: number };
   unlocatedCount: number;
   onBatchGeocode: (onProgress: (done: number, total: number) => void) => Promise<{ located: number; failed: number }>;
-}> = ({ open, onClose, vault, passcode, fingerprintBadge, syncBusy, hasUnsynced, onBindPasscode, onUnbind, onSyncNow, onRestoreSnapshot, onImportBackup, onUnhideCurated, onSetNickname, onToast, onImportPlaces, unlocatedCount, onBatchGeocode }) => {
+  categories: CategoryDef[];
+  categoryUsage: (id: string) => number;
+  onChangeCategories: (next: CategoryDef[]) => void;
+  onDeleteCategory: (id: string) => void;
+  initialSection?: 'top' | 'categories' | 'google';
+}> = ({ open, onClose, vault, passcode, fingerprintBadge, syncBusy, hasUnsynced, onBindPasscode, onUnbind, onSyncNow, onRestoreSnapshot, onImportBackup, onUnhideCurated, onSetNickname, onToast, onImportPlaces, unlocatedCount, onBatchGeocode, categories, categoryUsage, onChangeCategories, onDeleteCategory }) => {
   const [passInput, setPassInput] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [binding, setBinding] = useState(false);
@@ -34,6 +41,8 @@ export const SettingsModal: React.FC<{
   const [snaps, setSnaps] = useState<LocalHistorySnapshot[]>([]);
   const [nick, setNick] = useState(vault.profile.nickname || '');
   const [importMsg, setImportMsg] = useState('');
+  const [placesKey, setPlacesKey] = useState(() => loadPlacesKey());
+  const [showKey, setShowKey] = useState(false);
   const [geoProgress, setGeoProgress] = useState('');
   const [geoBusy, setGeoBusy] = useState(false);
 
@@ -151,6 +160,45 @@ export const SettingsModal: React.FC<{
             </>
           )}
           {bindMsg && <p className="text-[12.5px] font-bold text-[#5C5044]">{bindMsg}</p>}
+        </section>
+
+        <CategoryManager categories={categories} usageCount={categoryUsage} onChange={onChangeCategories} onDelete={onDeleteCategory} onToast={onToast} />
+
+        <section className="doodle-card p-4 flex flex-col gap-3" id="google-engine">
+          <SectionTitle>🔎 探索引擎：Google 地點金鑰（選填）</SectionTitle>
+          <p className="text-[13px] text-[#2D251E] leading-relaxed">
+            不填也能用免金鑰的 OpenStreetMap 引擎。想要「適合慶生的餐廳」這種語意搜尋＋Google 評分，可自備金鑰（每月有免費額度）：
+            <br />① console.cloud.google.com → 建立專案 → 啟用 <b>Places API (New)</b> → 建立 API 金鑰
+            <br />② 金鑰限制：應用程式限制選「HTTP 參照網址」填 <code className="bg-[#EFECE4] rounded px-1">{window.location.origin}/*</code>，API 限制只勾 Places API (New)
+            <br />③ 金鑰只存在這台裝置的瀏覽器，不會上雲端、不會進 GitHub
+          </p>
+          <div className="relative">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={placesKey}
+              onChange={(e) => setPlacesKey(e.target.value)}
+              className="input-cream pr-11"
+              placeholder="AIza…"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A7E70]" aria-label="顯示／隱藏">
+              {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                savePlacesKey(placesKey);
+                onToast(placesKey.trim() ? '🔑 已儲存 Google 金鑰（僅存本機）' : '已清除金鑰，改用免金鑰引擎');
+              }}
+              className="doodle-btn flex-1 bg-[#EFECE4] text-[#5C5044] font-black py-2.5 inline-flex items-center justify-center gap-1.5 text-[13px]"
+            >
+              <KeyRound size={15} /> 儲存金鑰
+            </button>
+          </div>
         </section>
 
         <section className="doodle-card p-4 flex flex-col gap-2">

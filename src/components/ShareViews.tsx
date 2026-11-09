@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Share2, Copy, Loader2, Navigation, ExternalLink } from 'lucide-react';
 import { ResolvedSpot, Spot } from '../types/pocket';
-import { CATEGORY_MAP, tagLabel } from '../data/categories';
+import { tagLabel, categoryMeta, DEFAULT_CATEGORIES } from '../data/categories';
+import { useCategories } from './CategoryContext';
 import { buildSharePayload, publishShare, buildShareUrl, fetchShare, SharePayload } from '../services/shareService';
 import { googleMapsViewUrl } from '../services/mapLinks';
 import { Modal, copyToClipboard, Chip } from './ui';
 import { MapView } from './MapView';
 import { HeroBanner } from './QuokkaBoboArt';
+import { CategoryProvider } from './CategoryContext';
 
 export const ShareComposerModal: React.FC<{
   open: boolean;
@@ -16,6 +18,7 @@ export const ShareComposerModal: React.FC<{
   onClose: () => void;
   onToast: (msg: string) => void;
 }> = ({ open, spots, preselectedIds, nickname, onClose, onToast }) => {
+  const { list: categories, meta } = useCategories();
   const [selected, setSelected] = useState<string[]>(preselectedIds);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,7 +43,7 @@ export const ShareComposerModal: React.FC<{
     }
     setBusy(true);
     try {
-      const payload = buildSharePayload(chosen, title.trim() || `${nickname || 'Mona'} 的口袋精選`, nickname || 'Mona');
+      const payload = buildSharePayload(chosen, title.trim() || `${nickname || 'Mona'} 的口袋精選`, nickname || 'Mona', categories);
       const code = await publishShare(payload);
       if (!code) {
         onToast('雲端暫時忙碌，請稍後再試');
@@ -97,7 +100,7 @@ export const ShareComposerModal: React.FC<{
             return (
               <button key={s.id} type="button" onClick={() => toggle(s.id)} className={`doodle-card p-3 text-left flex items-center gap-3 ${on ? 'ring-2 ring-[#F2CA62]' : ''}`}>
                 <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[13px] font-black ${on ? 'bg-[#F2CA62] border-[#E6BC52] text-[#3F2E0C]' : 'border-[#DDD7C9] text-transparent'}`}>✓</span>
-                <span className="text-xl">{CATEGORY_MAP[s.category].emoji}</span>
+                <span className="text-xl">{meta(s.category).emoji}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] font-black truncate">{s.name}</span>
                   <span className="block text-[12px] text-[#8A7E70] font-bold truncate">
@@ -141,6 +144,8 @@ export const ShareView: React.FC<{ code: string; onOpenApp: () => void }> = ({ c
     updatedAt: payload?.createdAt || 0,
     hidden: false,
   }));
+  const shareCategories = payload?.categories && payload.categories.length > 0 ? payload.categories : DEFAULT_CATEGORIES;
+  const metaOf = (id: string) => categoryMeta(shareCategories, id);
 
   return (
     <div className="min-h-screen bg-[#ECE8DF] text-[#2D251E] font-rounded">
@@ -159,15 +164,19 @@ export const ShareView: React.FC<{ code: string; onOpenApp: () => void }> = ({ c
               <h1 className="text-[22px] font-black">{payload.title}</h1>
               <p className="text-[13px] font-bold text-[#8A7E70]">由 {payload.from} 用 BoboPocket 分享・共 {spots.length} 家</p>
             </div>
-            {spots.some((s) => typeof s.lat === 'number') && <MapView spots={spots} className="h-64" />}
+            {spots.some((s) => typeof s.lat === 'number') && (
+              <CategoryProvider categories={shareCategories}>
+                <MapView spots={spots} className="h-64" />
+              </CategoryProvider>
+            )}
             <div className="flex flex-col gap-3">
               {spots.map((s) => (
                 <div key={s.id} className="doodle-card overflow-hidden">
                   {s.coverThumb && <img src={s.coverThumb} alt="" className="w-full h-44 object-cover" />}
                   <div className="p-4 flex flex-col gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full px-2.5 py-1 text-[12px] font-black" style={{ background: CATEGORY_MAP[s.category].bg, color: CATEGORY_MAP[s.category].fg }}>
-                        {CATEGORY_MAP[s.category].emoji} {CATEGORY_MAP[s.category].label}
+                      <span className="rounded-full px-2.5 py-1 text-[12px] font-black" style={{ background: metaOf(s.category).bg, color: metaOf(s.category).fg }}>
+                        {metaOf(s.category).emoji} {metaOf(s.category).label}
                       </span>
                       <span className="text-[12.5px] font-bold text-[#8A7E70]">
                         {s.city}

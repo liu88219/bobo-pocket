@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Search, SlidersHorizontal, X, LocateFixed, Loader2 } from 'lucide-react';
 import { SpotFilters, DEFAULT_FILTERS } from '../services/spotResolver';
-import { CATEGORIES, TAGS } from '../data/categories';
+import { TAGS } from '../data/categories';
+import { useCategories } from './CategoryContext';
 import { ResolvedSpot } from '../types/pocket';
 import { PRIMARY_CITIES, districtsForCity, stationsForCity, METRO_LINE_META } from '../data/taipeiGeo';
 import { Chip } from './ui';
@@ -15,6 +16,7 @@ export const FilterBar: React.FC<{
   onToggleNearby?: () => void;
 }> = ({ filters, onChange, allSpots, nearbyOn = false, nearbyBusy = false, onToggleNearby }) => {
   const [showMore, setShowMore] = useState(false);
+  const { list: CATEGORIES } = useCategories();
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { 全部: allSpots.length, 台北市: 0, 新北市: 0, 其他: 0 };

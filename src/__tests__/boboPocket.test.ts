@@ -7,7 +7,8 @@ import { createInitialVaultState, Spot, VaultState } from '../types/pocket';
 import { resolveAllSpots, applyFilters, DEFAULT_FILTERS } from '../services/spotResolver';
 import { CURATED_SPOTS } from '../data/curatedSpots';
 import { METRO_STATIONS, findStation, districtToCity } from '../data/taipeiGeo';
-import { TAGS, TAG_MAP } from '../data/categories';
+import { TAGS, TAG_MAP, DEFAULT_CATEGORIES, categoryMeta, makeCategoryId, resolveCategories } from '../data/categories';
+import { buildOverpassQuery, discoverResultToSpot, DISCOVER_THEMES, DISTRICT_CENTERS } from '../services/discover';
 import { parseOpenGraph } from '../services/linkPreview';
 import { buildSharePayload } from '../services/shareService';
 
@@ -65,6 +66,17 @@ describe('雙北規則引擎 parseSpotDraft', () => {
     expect(a.category).toBe('spot');
     const b = parseSpotDraft({ text: '宜蘭礁溪溫泉小旅行 不用訂位的隱藏咖啡廳' });
     expect(b.city).toBe('宜蘭縣');
+  });
+
+  it('新主分類：火鍋／燒肉／慶生餐廳／生日蛋糕／漢堡／宵夜', () => {
+    expect(parseSpotDraft({ text: '板橋超好吃的麻辣鍋物，湯頭一絕' }).category).toBe('hotpot');
+    expect(parseSpotDraft({ text: '和牛燒肉吃到飽 燒肉控必衝' }).category).toBe('bbq');
+    const bd = parseSpotDraft({ text: '台北慶生餐廳推薦！有包廂、壽星送蛋糕，適合生日聚餐' });
+    expect(bd.category).toBe('birthday');
+    expect(bd.tags).toContain('celebration');
+    expect(parseSpotDraft({ text: '客製化生日蛋糕 造型蛋糕預訂 中和' }).category).toBe('cake');
+    expect(parseSpotDraft({ text: '永和手工漢堡 Burger 超juicy' }).category).toBe('burger');
+    expect(parseSpotDraft({ text: '三重宵夜場 鹹酥雞配啤酒 開到凌晨' }).category).toBe('late-night');
   });
 
   it('沒有任何資訊時給安全預設', () => {
@@ -293,6 +305,56 @@ describe('spotResolver', () => {
   });
 });
 
+describe('分類系統', () => {
+  it('預設 14 分類、id 不重複，categoryMeta 有保底', () => {
+    expect(DEFAULT_CATEGORIES.length).toBe(14);
+    expect(new Set(DEFAULT_CATEGORIES.map((c) => c.id)).size).toBe(DEFAULT_CATEGORIES.length);
+    expect(categoryMeta(DEFAULT_CATEGORIES, 'hotpot').label).toBe('火鍋');
+    expect(categoryMeta([], 'cafe').label).toBe('咖啡廳');
+    expect(categoryMeta(DEFAULT_CATEGORIES, 'nope').emoji).toBe('📍');
+    expect(makeCategoryId('手搖飲', DEFAULT_CATEGORIES)).toBe('cat-手搖飲');
+    expect(resolveCategories({ categories: undefined })).toBe(DEFAULT_CATEGORIES);
+  });
+
+  it('自訂分類採最後寫入優先同步', () => {
+    const local: VaultState = { ...createInitialVaultState(), isUneditedDefault: false, updatedAt: 2, categories: [{ id: 'x', label: 'X', emoji: '🍜', bg: '#fff', fg: '#000' }], categoriesUpdatedAt: 2 };
+    const remote: VaultState = { ...createInitialVaultState(), isUneditedDefault: false, updatedAt: 3, categories: [{ id: 'y', label: 'Y', emoji: '☕', bg: '#fff', fg: '#000' }], categoriesUpdatedAt: 3 };
+    expect(mergeVaultStates(local, remote).categories?.[0].id).toBe('y');
+    expect(mergeVaultStates(remote, local).categories?.[0].id).toBe('y');
+    expect(hasUserRecords(local)).toBe(true);
+  });
+});
+
+describe('探索 discover', () => {
+  it('buildOverpassQuery 產生合法查詢，主題皆對應存在的分類', () => {
+    const theme = DISCOVER_THEMES.find((t) => t.id === 'hotpot')!;
+    const q = buildOverpassQuery({ center: { lat: 25.012, lng: 121.462 }, radius: 2800, theme, keyword: '麻辣', areaLabel: '板橋區' });
+    expect(q).toContain('[out:json]');
+    expect(q).toContain('around:2800,25.01200,121.46200');
+    expect(q).toContain('麻辣');
+    for (const t of DISCOVER_THEMES) expect(DEFAULT_CATEGORIES.some((c) => c.id === t.categoryId), t.id).toBe(true);
+    expect(Object.keys(DISTRICT_CENTERS).length).toBeGreaterThanOrEqual(41);
+  });
+
+  it('discoverResultToSpot 推斷縣市／行政區並帶座標', () => {
+    const spot = discoverResultToSpot(
+      { id: 'osm-node-1', name: '某某火鍋', address: '新北市板橋區文化路一段100號', lat: 25.01, lng: 121.46, engine: 'osm', typeLabel: 'restaurant · hotpot' },
+      'hotpot',
+      '火鍋',
+      7000
+    );
+    expect(spot.category).toBe('hotpot');
+    expect(spot.city).toBe('新北市');
+    expect(spot.district).toBe('板橋區');
+    expect(spot.lat).toBe(25.01);
+    expect(spot.summary).toContain('火鍋');
+    const osmShort = discoverResultToSpot({ id: 'osm-node-2', name: '辣九天麻辣火鍋', address: '文化路一段126號', lat: 25.02, lng: 121.47, engine: 'osm' }, 'hotpot', '火鍋', 7000, { city: '新北市', district: '板橋區' });
+    expect(osmShort.city).toBe('新北市');
+    expect(osmShort.district).toBe('板橋區');
+    expect(osmShort.address).toBe('新北市板橋區文化路一段126號');
+  });
+});
+
 describe('linkPreview / share', () => {
   it('parseOpenGraph 讀取 og 標籤', () => {
     const html = `<html><head><meta property="og:title" content="Cafe &amp; Co (@cafe) on Threads"><meta content="好喝 ☕" property="og:description"><meta property="og:image" content="https://x/y.jpg"></head></html>`;
@@ -305,8 +367,9 @@ describe('linkPreview / share', () => {
   it('buildSharePayload 在超量時移除封面圖', () => {
     const big = 'data:image/jpeg;base64,' + 'a'.repeat(60000);
     const spots = Array.from({ length: 4 }, (_, i) => personalSpot({ id: `s${i}`, name: `S${i}`, coverThumb: big }));
-    const payload = buildSharePayload(spots, 't', 'mona');
+    const payload = buildSharePayload(spots, 't', 'mona', DEFAULT_CATEGORIES);
     expect(JSON.stringify(payload).length).toBeLessThanOrEqual(150000);
     expect(payload.spots.length).toBe(4);
+    expect(payload.categories?.map((c) => c.id)).toEqual(['cafe']);
   });
 });

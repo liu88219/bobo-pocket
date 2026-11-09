@@ -1,11 +1,12 @@
 import React from 'react';
 import { MapPin, TrainFront, Bookmark, CheckCircle2 } from 'lucide-react';
 import { ResolvedSpot } from '../types/pocket';
-import { CATEGORY_MAP, REVISIT_META, tagLabel } from '../data/categories';
+import { REVISIT_META, tagLabel } from '../data/categories';
 import { PLATFORM_LABEL } from './ui';
+import { useCategories } from './CategoryContext';
 
 export const CategoryPill: React.FC<{ category: ResolvedSpot['category']; small?: boolean }> = ({ category, small = false }) => {
-  const meta = CATEGORY_MAP[category];
+  const meta = useCategories().meta(category);
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full font-black ${small ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-[12px]'}`}
@@ -17,7 +18,7 @@ export const CategoryPill: React.FC<{ category: ResolvedSpot['category']; small?
 };
 
 export const CoverArea: React.FC<{ spot: ResolvedSpot; className?: string }> = ({ spot, className = 'h-36' }) => {
-  const meta = CATEGORY_MAP[spot.category];
+  const meta = useCategories().meta(spot.category);
   const photo = spot.coverThumb || spot.mark?.photoThumb;
   if (photo) {
     return (

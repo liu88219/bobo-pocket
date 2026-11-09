@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Dices } from 'lucide-react';
 import { ResolvedSpot } from '../types/pocket';
-import { CATEGORY_MAP } from '../data/categories';
 import { Modal } from './ui';
+import { useCategories } from './CategoryContext';
 import { DuoStage } from './QuokkaBoboArt';
 
 export const RandomPickerModal: React.FC<{
@@ -12,6 +12,7 @@ export const RandomPickerModal: React.FC<{
   onClose: () => void;
   onOpenSpot: (spot: ResolvedSpot) => void;
 }> = ({ open, candidates, scopeLabel, onClose, onOpenSpot }) => {
+  const { meta } = useCategories();
   const [rolling, setRolling] = useState(false);
   const [current, setCurrent] = useState<ResolvedSpot | null>(null);
   const [result, setResult] = useState<ResolvedSpot | null>(null);
@@ -55,7 +56,7 @@ export const RandomPickerModal: React.FC<{
           {shown ? (
             <>
               <span className="text-[13px] font-black text-[#8A7E70]">
-                {CATEGORY_MAP[shown.category].emoji} {CATEGORY_MAP[shown.category].label}・{shown.city}
+                {meta(shown.category).emoji} {meta(shown.category).label}・{shown.city}
                 {shown.district ? ` ${shown.district}` : ''}
               </span>
               <span className={`text-[20px] font-black text-[#2D251E] ${rolling ? 'opacity-70' : ''}`}>{shown.name}</span>
