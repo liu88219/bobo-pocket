@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background-color: #ece8df;
+  color: #2d251e;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@layer components {
+/* Authentic DINOTAENG matte oatmeal & cream stationery UI */
+.doodle-card {
+  background: #faf8f3;
+  border: 1.5px solid #ddd7c9;
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 24px -6px rgba(60, 48, 36, 0.07);
+}
+
+.doodle-card-soft {
+  background: #efece4;
+  border: 1px solid #e3ddd0;
+  border-radius: 1.25rem;
+}
+
+.doodle-card-yellow {
+  background: #f2ca62;
+  border-radius: 1.6rem;
+  box-shadow: 0 10px 26px -6px rgba(180, 132, 34, 0.22);
+}
+
+.doodle-btn {
+  border-radius: 1.1rem;
+  box-shadow: 0 4px 0 rgba(30, 24, 20, 0.12);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.15s ease;
+}
+
+.doodle-btn:hover {
+  filter: brightness(1.03);
+}
+
+.doodle-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(30, 24, 20, 0.12);
+}
+
+.pill {
+  @apply inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12.5px] font-bold whitespace-nowrap transition-colors;
+}
+
+.pill-idle {
+  @apply bg-[#F4F1EA] text-[#5C5044] border border-[#DDD7C9];
+}
+
+.pill-active {
+  @apply bg-[#2D251E] text-[#FAF8F3] border border-[#2D251E];
+}
+
+.pill-butter {
+  @apply bg-[#F2CA62] text-[#3F2E0C] border border-[#E6BC52];
+}
+
+.input-cream {
+  @apply w-full rounded-2xl border border-[#DDD7C9] bg-[#FFFDF8] px-4 py-3 text-[15px] text-[#2D251E] placeholder:text-[#A79C8E] focus:outline-none focus:ring-2 focus:ring-[#F2CA62]/70 focus:border-[#E6BC52];
+}
+
+.label-cream {
+  @apply block text-[12px] font-bold tracking-wide text-[#8A7E70] mb-1.5;
+}
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.sheet-enter {
+  animation: sheetUp 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.22s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes quokkaBounce {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+}
+
+.quokka-bounce {
+  animation: quokkaBounce 0.9s ease-in-out infinite;
+}
+
+@keyframes spinSlow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-slow {
+  animation: spinSlow 1.4s linear infinite;
+}
+
+/* Leaflet cream theming */
+.leaflet-container {
+  font-family: inherit;
+  background: #e4e0d6;
+  border-radius: 1.5rem;
+}
+
+/* Warm cream tint for OSM raster tiles */
+.bp-cream-tiles {
+  filter: sepia(0.28) saturate(0.72) brightness(1.04) contrast(0.96);
+}
+
+.leaflet-popup-content-wrapper {
+  background: #faf8f3;
+  color: #2d251e;
+  border-radius: 1.1rem;
+  border: 1.5px solid #ddd7c9;
+  box-shadow: 0 10px 26px -8px rgba(60, 48, 36, 0.22);
+}
+
+.leaflet-popup-tip {
+  background: #faf8f3;
+}
+
+.leaflet-popup-content {
+  margin: 10px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.bp-marker {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #faf8f3;
+  border: 2px solid #c48e63;
+  box-shadow: 0 6px 14px -4px rgba(60, 48, 36, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.bp-marker.visited {
+  border-color: #5e8c61;
+}
+
+.bp-marker.want {
+  border-color: #e0ad2e;
+  background: #fbe9b5;
+}
+
+.bp-marker-wrap {
+  background: transparent;
+  border: none;
+}

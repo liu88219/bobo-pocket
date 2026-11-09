@@ -1,0 +1,172 @@
+import { Spot } from '../types/pocket';
+
+/**
+ * 公開層「精選口袋名單」— 由 Bobo 管家（Jetski）透過 git 直接維護。
+ *
+ * 🤎 想新增店家：把 IG / Threads 連結＋文案或截圖丟到對話，管家會查證店名、地址、捷運站、座標後補進這裡。
+ * ⚠️ 以下 8 筆為第一版「範例卡」(isSeed)，營業資訊以店家最新公告為準；在 App 內可直接隱藏，或請管家移除。
+ */
+
+const SEED_TS = 1762670000000; // 2025-11-09 範例建立時間（固定值，避免每次 build 變動）
+
+function seed(
+  partial: Omit<Spot, 'origin' | 'isSeed' | 'createdAt' | 'updatedAt' | 'highlights' | 'tags'> & {
+    highlights?: string[];
+    tags?: string[];
+  }
+): Spot {
+  return {
+    highlights: [],
+    tags: [],
+    ...partial,
+    origin: 'curated',
+    isSeed: true,
+    createdAt: SEED_TS,
+    updatedAt: SEED_TS,
+  };
+}
+
+export const CURATED_SPOTS: Spot[] = [
+  seed({
+    id: 'cur-fika-fika-cafe',
+    name: 'Fika Fika Cafe（伊通店）',
+    category: 'cafe',
+    city: '台北市',
+    district: '中山區',
+    mrt: '松江南京站',
+    zone: '赤峰街・中山商圈',
+    address: '台北市中山區伊通街33號1樓',
+    lat: 25.0505,
+    lng: 121.5334,
+    hours: '週一 10:30–21:00／週二至週日 08:00–21:00（依現場公告為準）',
+    priceHint: '人均約 $200–350',
+    tags: ['work-friendly', 'photogenic', 'date'],
+    highlights: ['北歐烘焙冠軍咖啡', '手沖單品', '肉桂捲'],
+    summary: '伊通公園旁的北歐風白色咖啡館，世界烘焙冠軍 James 的店，是雙北跑咖經典起點。',
+    source: { platform: 'web', url: 'https://www.fikafikacafe.com/' },
+  }),
+  seed({
+    id: 'cur-din-tai-fung-xinsheng',
+    name: '鼎泰豐 新生店',
+    category: 'food',
+    city: '台北市',
+    district: '中正區',
+    mrt: '東門站',
+    zone: '永康街・東門',
+    address: '台北市中正區信義路二段277號',
+    lat: 25.0335,
+    lng: 121.5302,
+    hours: '週一至週五 11:00–20:30／週六日及例假日 10:00–20:30',
+    priceHint: '人均約 $500–800',
+    tags: ['queue', 'group', 'kids'],
+    highlights: ['小籠包', '蝦仁炒飯', '酸辣湯', '紅油抄手'],
+    summary: '原信義本店搬遷後的新生店，帶外地朋友吃小籠包的安全牌，建議避開用餐尖峰或線上抽號。',
+    source: { platform: 'web', url: 'https://www.dintaifung.com.tw/' },
+  }),
+  seed({
+    id: 'cur-fu-hang-soy-milk',
+    name: '阜杭豆漿',
+    category: 'food',
+    city: '台北市',
+    district: '中正區',
+    mrt: '善導寺站',
+    zone: '華山・忠孝新生',
+    address: '台北市中正區忠孝東路一段108號2樓（華山市場）',
+    lat: 25.0442,
+    lng: 121.5249,
+    hours: '週二至週日 05:30–12:30（售完提早打烊）／週一公休',
+    priceHint: '人均約 $100–150',
+    tags: ['queue', 'budget', 'takeaway'],
+    highlights: ['厚燒餅夾蛋', '鹹豆漿', '甜豆漿', '蛋餅'],
+    summary: '華山市場二樓的排隊早餐傳奇，建議 7 點前到或平日早上，厚燒餅現烤超香。',
+  }),
+  seed({
+    id: 'cur-smoothie-house-yongkang',
+    name: '思慕昔 Smoothie House 永康本館',
+    category: 'dessert',
+    city: '台北市',
+    district: '大安區',
+    mrt: '東門站',
+    zone: '永康街・東門',
+    address: '台北市大安區永康街15號',
+    lat: 25.0333,
+    lng: 121.5297,
+    hours: '每日 11:00–21:00',
+    priceHint: '一盤約 $200–300',
+    tags: ['photogenic', 'group', 'rainy-indoor'],
+    highlights: ['超級雪酪芒果雪花冰', '草莓雪花冰（冬季限定）'],
+    summary: '永康街芒果冰名店，東門站 5 號出口步行 2 分鐘，夏天吃芒果、冬天吃草莓。',
+    source: { platform: 'web', url: 'https://www.smoothiehouse.com/' },
+  }),
+  seed({
+    id: 'cur-huashan-1914',
+    name: '華山1914文化創意產業園區',
+    category: 'spot',
+    city: '台北市',
+    district: '中正區',
+    mrt: '忠孝新生站',
+    zone: '華山・忠孝新生',
+    address: '台北市中正區八德路一段1號',
+    lat: 25.0441,
+    lng: 121.5295,
+    hours: '園區戶外全天開放／各展覽與店家時間依公告',
+    priceHint: '園區免費，展覽另計',
+    tags: ['rainy-indoor', 'photogenic', 'date', 'pet-friendly'],
+    highlights: ['特展', '光點華山電影', '草皮野餐', '文創市集'],
+    summary: '老酒廠改建的文創園區，雨天看展、週末市集、晚上看電影都適合，周邊咖啡廳密度超高。',
+    source: { platform: 'web', url: 'https://www.huashan1914.com/' },
+  }),
+  seed({
+    id: 'cur-lin-family-mansion',
+    name: '林本源園邸（板橋林家花園）',
+    category: 'spot',
+    city: '新北市',
+    district: '板橋區',
+    mrt: '府中站',
+    zone: '板橋府中・新板特區',
+    address: '新北市板橋區西門街9號',
+    lat: 25.0107,
+    lng: 121.4549,
+    hours: '每日 09:00–17:00（16:30 停止售票）／每月第一個週一休園',
+    priceHint: '門票約 $80（設籍新北免費）',
+    tags: ['photogenic', 'old-house', 'date', 'rainy-indoor'],
+    highlights: ['來青閣', '月波水榭', '古典園林漢服寫真'],
+    summary: '台灣保存最完整的清代園林宅邸，府中站步行約 8 分鐘，拍照超有氛圍，週末常有導覽。',
+    source: { platform: 'web', url: 'https://www.linfamily.ntpc.gov.tw/' },
+  }),
+  seed({
+    id: 'cur-tamsui-old-street',
+    name: '淡水老街・漁人碼頭',
+    category: 'spot',
+    city: '新北市',
+    district: '淡水區',
+    mrt: '淡水站',
+    zone: '淡水老街・漁人碼頭',
+    address: '新北市淡水區中正路（淡水捷運站出站即達）',
+    lat: 25.1697,
+    lng: 121.4396,
+    hours: '老街店家多為 11:00–21:00／漁人碼頭情人橋夜景全天',
+    priceHint: '小吃人均約 $150–300',
+    tags: ['view', 'walk', 'group', 'kids'],
+    highlights: ['阿給', '魚丸', '鐵蛋', '渡船到八里', '漁人碼頭夕陽'],
+    summary: '紅線直達的經典一日遊：老街吃阿給 → 河岸散步 → 搭紅 26 公車到漁人碼頭看夕陽。',
+  }),
+  seed({
+    id: 'cur-jiufen-old-street',
+    name: '九份老街',
+    category: 'spot',
+    city: '新北市',
+    district: '瑞芳區',
+    zone: '九份・金瓜石',
+    address: '新北市瑞芳區基山街',
+    lat: 25.1095,
+    lng: 121.8449,
+    hours: '店家多為 10:00–20:00（茶樓營業較晚）',
+    priceHint: '芋圓一碗約 $55–60',
+    tags: ['view', 'walk', 'photogenic', 'queue'],
+    highlights: ['阿柑姨芋圓', '阿妹茶樓夜景', '豎崎路階梯紅燈籠'],
+    summary: '無捷運：忠孝復興站搭 1062 公車或瑞芳火車站轉 788／827，建議平日下午去待到點燈。',
+  }),
+];
+
+export const CURATED_SPOT_IDS = new Set(CURATED_SPOTS.map((s) => s.id));
